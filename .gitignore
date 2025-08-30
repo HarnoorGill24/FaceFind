@@ -1,0 +1,13 @@
+# Virtualenv
+.venv/
+.idea/
+__pycache__/
+*.pyc
+
+# Outputs
+outputs/
+data/
+*.log
+
+# OS
+.DS_Store

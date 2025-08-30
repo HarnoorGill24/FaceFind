@@ -11,3 +11,17 @@ data/
 
 # OS
 .DS_Store
+
+# Model checkpoints
+*.pt
+*.pth
+*.ckpt
+
+# Large data artifacts
+*.npz
+*.npy
+*.h5
+
+# Video/image cache
+frames_cache/
+thumbnails/

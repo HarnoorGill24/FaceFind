@@ -12,10 +12,7 @@ import os
 import re
 import shutil
 from pathlib import Path
- codex/create-utility-module-for-image-processing
-
 from typing import Optional
- main
 
 
 def safe_name(name: str) -> str:
@@ -51,22 +48,27 @@ def main() -> None:
     with csv_path.open("r", newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         for row in reader:
-            p = (row.get("path") or row.get("crop_path") or row.get("file") or row.get("image") or "").strip()
- codex/create-utility-module-for-image-processing
-            cl = (
+            p: Optional[str] = (
+                row.get("path")
+                or row.get("crop_path")
+                or row.get("file")
+                or row.get("image")
+            )
+            cl: Optional[str] = (
                 row.get("cluster")
                 or row.get("cluster_id")
                 or row.get("pred_label")
                 or row.get("label")
                 or row.get("prediction")
-                or ""
-            ).strip()
+            )
 
-
-            cl = (row.get("cluster") or row.get("cluster_id") or row.get("pred_label") or row.get("label") or row.get("prediction") or "").strip()
- main
             if not p or not cl:
                 continue
+            p = p.strip()
+            cl = cl.strip()
+            if not p or not cl:
+                continue
+
             src = Path(p).expanduser()
             if not src.is_absolute():
                 src = (csv_path.parent / src).resolve()

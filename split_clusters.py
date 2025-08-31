@@ -3,85 +3,94 @@
 FaceFind - split_clusters.py
 
 Split a clustering or prediction CSV into per-label folders.
-Places images into directories named after each cluster/label by creating
-hard links (or copies with --copy).
+Creates hard links by default (use --copy to actually copy files).
+
+CSV column detection (first match wins):
+- path/file/image
+- cluster/label/prediction
+- confidence (optional; ignored here)
 """
 import argparse
 import csv
 import os
-import re
 import shutil
 from pathlib import Path
-from typing import Optional
 
+IMAGE_COL_CANDIDATES = ("path", "file", "image")
+LABEL_COL_CANDIDATES = ("cluster", "label", "prediction")
 
-def safe_name(name: str) -> str:
-    """Sanitize a cluster/prediction name for filesystem use."""
-    name = re.sub(r"[^A-Za-z0-9._-]+", "_", name.strip())
-    return name or "unknown"
+def ensure_dir(p: Path) -> None:
+    p.mkdir(parents=True, exist_ok=True)
 
+def place(dst_root: Path, label: str, src: Path, copy: bool) -> None:
+    dst_dir = dst_root / (label or "unknown")
+    ensure_dir(dst_dir)
+    dst = dst_dir / src.name
+    try:
+        if copy:
+            shutil.copy2(src, dst)
+        else:
+            os.link(src, dst)  # hard link saves space
+    except Exception:
+        shutil.copy2(src, dst)
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Split images into folders by cluster/prediction")
-    ap.add_argument("csv_path", help="CSV file with columns: path and cluster/prediction")
-    ap.add_argument("out_dir", help="Destination directory for per-cluster folders")
-    ap.add_argument("--copy", action="store_true", help="Copy files instead of hard linking")
+    ap.add_argument("csv_path", help="CSV with image path + cluster/label columns")
+    ap.add_argument("out_dir", help="Destination directory for per-label folders")
+    ap.add_argument("--copy", action="store_true", help="Copy files instead of hard-linking")
+    ap.add_argument("--rel-root", default=None, help="Optional root to resolve relative CSV paths")
     args = ap.parse_args()
 
     csv_path = Path(args.csv_path).expanduser().resolve()
     out_dir = Path(args.out_dir).expanduser().resolve()
-    out_dir.mkdir(parents=True, exist_ok=True)
+    ensure_dir(out_dir)
 
-    def place(cluster: str, src: Path) -> None:
-        dest = out_dir / safe_name(cluster)
-        dest.mkdir(parents=True, exist_ok=True)
-        dst = dest / src.name
-        if args.copy:
-            shutil.copy2(src, dst)
-        else:
-            try:
-                os.link(src, dst)  # hardlink to save space
-            except Exception:
-                shutil.copy2(src, dst)
+    rel_root = Path(args.rel_root).expanduser().resolve() if args.rel_root else None
+
+    with csv_path.open(newline="", encoding="utf-8") as f:
+        reader = csv.DictReader(f)
+        headers = {h.lower(): h for h in (reader.fieldnames or [])}
+        def pick(cands):
+            for c in cands:
+                if c in headers:
+                    return headers[c]
+            return None
+
+        img_col = pick(IMAGE_COL_CANDIDATES)
+        lab_col = pick(LABEL_COL_CANDIDATES)
+
+        if not img_col or not lab_col:
+            raise SystemExit(
+                f"CSV must contain image column in {IMAGE_COL_CANDIDATES} "
+                f"and label column in {LABEL_COL_CANDIDATES}. Found: {reader.fieldnames}"
+            )
+
+        rows = list(reader)
 
     placed = 0
-    with csv_path.open("r", newline="", encoding="utf-8") as f:
-        reader = csv.DictReader(f)
-        for row in reader:
-            p: Optional[str] = (
-                row.get("path")
-                or row.get("crop_path")
-                or row.get("file")
-                or row.get("image")
-            )
-            cl: Optional[str] = (
-                row.get("cluster")
-                or row.get("cluster_id")
-                or row.get("pred_label")
-                or row.get("label")
-                or row.get("prediction")
-            )
+    skipped = 0
 
-            if not p or not cl:
-                continue
-            p = p.strip()
-            cl = cl.strip()
-            if not p or not cl:
-                continue
+    for row in rows:
+        raw_path = (row.get(img_col) or "").strip()
+        label = (row.get(lab_col) or "").strip()
+        if not raw_path or not label:
+            skipped += 1
+            continue
 
-            src = Path(p).expanduser()
-            if not src.is_absolute():
-                src = (csv_path.parent / src).resolve()
-            if not src.exists():
-                continue
-            try:
-                place(cl, src)
-                placed += 1
-            except Exception:
-                pass
+        p = Path(raw_path)
+        if not p.is_absolute() and rel_root:
+            p = (rel_root / p).resolve()
 
-    print(f"[INFO] Placed {placed} files into {out_dir}")
+        if not p.exists():
+            skipped += 1
+            continue
 
+        place(out_dir, label, p, copy=args.copy)
+        placed += 1
+
+    print(f"[DONE] Placed: {placed}, Skipped: {skipped}")
+    print(f"[OUT] {out_dir}")
 
 if __name__ == "__main__":
     main()

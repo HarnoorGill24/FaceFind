@@ -1,27 +1,47 @@
-# Virtualenv
-.venv/
-.idea/
+# --- Python basics ---
 __pycache__/
-*.pyc
-
-# Outputs
-outputs/
-data/
+*.py[cod]
+*.pyo
+*.pyd
+*.so
+*.egg-info/
+.eggs/
 *.log
 
-# OS
+# --- Virtual environments ---
+.venv/
+venv/
+env/
+
+# --- IDE / editor stuff ---
+.idea/
+.vscode/
+*.swp
+
+# --- OS cruft ---
 .DS_Store
+Thumbs.db
 
-# Model checkpoints
-*.pt
-*.pth
-*.ckpt
+# --- FaceFind outputs ---
+outputs/
+# Training / model artifacts
+models/*.joblib
+models/*.json
+models/*.npy
+models/*.pkl
+# If you want to ignore *all* model outputs, uncomment:
+# models/
 
-# Large data artifacts
-*.npz
-*.npy
-*.h5
+# --- Tests / coverage ---
+.coverage
+htmlcov/
+.cache/
+pytest_cache/
 
-# Video/image cache
-frames_cache/
-thumbnails/
+# --- Jupyter / notebooks ---
+.ipynb_checkpoints/
+*.ipynb
+
+# --- Packaging / builds ---
+build/
+dist/

@@ -1,15 +1,14 @@
-
 #!/usr/bin/env python3
 """
 FaceFind - main.py
 Scan images/videos, detect faces, save crops + manifest.
-Uses strictness profiles from config.py (MTCNN thresholds, min size, embed batch size placeholder).
+Uses strictness profiles from config.py (MTCNN thresholds, min size).
+Device selection is shared via embedding_utils.get_device().
 """
 import argparse
 import csv
 import sys
 import time
-from dataclasses import asdict
 from pathlib import Path
 from typing import Any, Iterator, Optional, Tuple
 
@@ -22,12 +21,11 @@ try:
 except Exception:
     cv2 = None
 
-from PIL import Image
+from PIL import Image, ImageOps
 from facenet_pytorch import MTCNN
 
-# Import strictness profile
 from config import get_profile
-from embedding_utils import get_device
+from embedding_utils import get_device  # <-- shared util from Codex refactor
 
 IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff', '.webp'}
 VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.mkv', '.m4v'}
@@ -39,6 +37,7 @@ def is_video(p: Path) -> bool:
     return p.suffix.lower() in VIDEO_EXTS
 
 def iter_media(root: Path) -> Iterator[Path]:
+    # Deterministic ordering
     for p in sorted(root.rglob('*')):
         if p.is_file() and (is_image(p) or is_video(p)):
             yield p
@@ -46,13 +45,10 @@ def iter_media(root: Path) -> Iterator[Path]:
 def ensure_dir(p: Path):
     p.mkdir(parents=True, exist_ok=True)
 
-def read_image_bgr(path: Path):
-    if cv2 is None:
-        raise RuntimeError("OpenCV (cv2) is required to read images and videos. pip install opencv-python")
-    img = cv2.imread(str(path))
-    if img is None:
-        raise RuntimeError(f"Failed to read image: {path}")
-    return img
+def read_image_pil_rgb(path: Path) -> Image.Image:
+    """Read still image via PIL and auto-fix EXIF orientation."""
+    img = Image.open(path).convert("RGB")
+    return ImageOps.exif_transpose(img)
 
 def frame_iterator(video_path: Path, step: int):
     """Yield (frame_index, frame_bgr) every `step` frames."""
@@ -73,7 +69,10 @@ def frame_iterator(video_path: Path, step: int):
     cap.release()
 
 def bgr_to_pil_rgb(bgr: np.ndarray) -> Image.Image:
-    rgb = bgr[..., ::-1]  # BGR->RGB
+    """Convert OpenCV BGR frame to PIL RGB."""
+    if cv2 is None:
+        raise RuntimeError("OpenCV required for BGR->RGB conversion.")
+    rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
     return Image.fromarray(rgb)
 
 def crop_and_save(pil_img: Image.Image, box: Tuple[int, int, int, int], out_dir: Path, stem: str, face_id: int) -> Path:
@@ -96,11 +95,15 @@ def main():
                         help="Threshold profile from config.py")
     parser.add_argument("--device", default=None, help="torch device, e.g., cuda, mps, or cpu (auto if not set)")
     parser.add_argument("--max-per-media", type=int, default=50, help="Max faces to save per media file (safety)")
+    parser.add_argument("--log-no-face", action="store_true",
+                        help="Log files/frames where no faces were detected")
+    parser.add_argument("--progress-every", type=int, default=100,
+                        help="Print a progress line every N media files (default: 100)")
     args = parser.parse_args()
 
     prof = get_profile(args.strictness)
 
-    # Select device
+    # Shared device resolver (Codex refactor)
     device = get_device(args.device)
     print(f"[INFO] Using device: {device}")
 
@@ -112,76 +115,90 @@ def main():
     ensure_dir(manifests_dir)
 
     # Initialize MTCNN with profile thresholds
-    mtcnn = MTCNN(keep_all=True,
-                  thresholds=prof.mtcnn_thresholds,
-                  min_face_size=prof.min_size,
-                  device=device)
+    mtcnn = MTCNN(
+        keep_all=True,
+        thresholds=prof.mtcnn_thresholds,
+        min_face_size=prof.min_size,
+        device=device
+    )
 
     manifest_rows = []
     t0 = time.time()
     media_count = 0
     face_total = 0
 
-    for media_path in iter_media(input_dir):
-        media_count += 1
-        rel = media_path.relative_to(input_dir)
-        stem = media_path.stem
-        try:
-            if is_image(media_path):
-                img_bgr = read_image_bgr(media_path)
-                pil = bgr_to_pil_rgb(img_bgr)
-                boxes, probs = mtcnn.detect(pil)
-                if boxes is None or probs is None:
-                    continue
-                saved = 0
-                for i, (box, prob) in enumerate(zip(boxes, probs)):
-                    if prob is None or prob < prof.min_prob:
-                        continue
-                    try:
-                        out_path = crop_and_save(pil, box, crops_dir, stem, i)
-                        manifest_rows.append([str(out_path), str(rel), f"{prob:.4f}"])
-                        face_total += 1
-                        saved += 1
-                        if saved >= args.max_per_media:
-                            break
-                    except Exception as e:
-                        print(f"[WARN] crop save failed for {media_path}: {e}", file=sys.stderr)
+    # Process with graceful Ctrl-C handling
+    try:
+        for media_path in iter_media(input_dir):
+            media_count += 1
+            if args.progress_every and (media_count % args.progress_every == 0):
+                elapsed = time.time() - t0
+                print(f"[INFO] Progress: {media_count} media processed in {elapsed:.1f}s")
 
-            elif is_video(media_path):
-                if cv2 is None:
-                    raise RuntimeError("OpenCV (cv2) required for video processing. pip install opencv-python")
-                saved_from_video = 0
-                for frame_idx, frame in frame_iterator(media_path, args.video_step):
-                    pil = bgr_to_pil_rgb(frame)
+            rel = media_path.relative_to(input_dir)
+            stem = media_path.stem
+            try:
+                if is_image(media_path):
+                    # Use EXIF-aware PIL path for images
+                    pil = read_image_pil_rgb(media_path)
                     boxes, probs = mtcnn.detect(pil)
-                    if boxes is None or probs is None:
+                    if boxes is None or probs is None or len(boxes) == 0:
+                        if args.log_no_face:
+                            print(f"[INFO] No faces: {rel}")
                         continue
+                    saved = 0
                     for i, (box, prob) in enumerate(zip(boxes, probs)):
                         if prob is None or prob < prof.min_prob:
                             continue
                         try:
-                            out_path = crop_and_save(pil, box, crops_dir, f"{stem}_f{frame_idx}", i)
-                            manifest_rows.append([str(out_path), f"{rel}#frame={frame_idx}", f"{prob:.4f}"])
+                            out_path = crop_and_save(pil, box, crops_dir, stem, i)
+                            manifest_rows.append([str(out_path), str(rel), f"{prob:.4f}"])
                             face_total += 1
-                            saved_from_video += 1
-                            if saved_from_video >= args.max_per_media:
+                            saved += 1
+                            if saved >= args.max_per_media:
                                 break
                         except Exception as e:
-                            print(f"[WARN] video crop save failed for {media_path}: {e}", file=sys.stderr)
-                    if saved_from_video >= args.max_per_media:
-                        break
-            else:
-                continue
-        except Exception as e:
-            print(f"[WARN] Failed on {media_path}: {e}", file=sys.stderr)
+                            print(f"[WARN] crop save failed for {media_path}: {e}", file=sys.stderr)
 
-    # Write manifest CSV
+                elif is_video(media_path):
+                    if cv2 is None:
+                        raise RuntimeError("OpenCV (cv2) required for video processing. pip install opencv-python")
+                    saved_from_video = 0
+                    for frame_idx, frame in frame_iterator(media_path, args.video_step):
+                        pil = bgr_to_pil_rgb(frame)
+                        boxes, probs = mtcnn.detect(pil)
+                        if boxes is None or probs is None or len(boxes) == 0:
+                            if args.log_no_face:
+                                print(f"[INFO] No faces: {rel}#frame={frame_idx}")
+                            continue
+                        for i, (box, prob) in enumerate(zip(boxes, probs)):
+                            if prob is None or prob < prof.min_prob:
+                                continue
+                            try:
+                                out_path = crop_and_save(pil, box, crops_dir, f"{stem}_f{frame_idx}", i)
+                                manifest_rows.append([str(out_path), f"{rel}#frame={frame_idx}", f"{prob:.4f}"])
+                                face_total += 1
+                                saved_from_video += 1
+                                if saved_from_video >= args.max_per_media:
+                                    break
+                            except Exception as e:
+                                print(f"[WARN] video crop save failed for {media_path}: {e}", file=sys.stderr)
+                        if saved_from_video >= args.max_per_media:
+                            break
+                else:
+                    continue
+            except Exception as e:
+                print(f"[WARN] Failed on {media_path}: {e}", file=sys.stderr)
+
+    except KeyboardInterrupt:
+        print("[INFO] Interrupted. Writing partial manifest...", file=sys.stderr)
+
+    # Always write whatever we have so far
     manifest_csv = out_root / "crops_manifest.csv"
     with manifest_csv.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["crop_path", "source", "prob"])
-        for row in manifest_rows:
-            writer.writerow(row)
+        writer.writerows(manifest_rows)
 
     dt = time.time() - t0
     print(f"[INFO] Done. Media processed: {media_count}, faces saved: {face_total}, time: {dt:.1f}s")

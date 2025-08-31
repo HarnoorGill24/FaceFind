@@ -1,4 +1,3 @@
-
 #!/usr/bin/env python3
 """
 FaceFind - report.py
@@ -22,16 +21,19 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import mean
 
+
 def count_images_in_dir(p: Path) -> int:
     if not p.exists():
         return 0
-    return sum(1 for x in p.rglob("*") if x.suffix.lower() in {".jpg",".jpeg",".png",".webp",".bmp",".tif",".tiff"})
+    return sum(1 for x in p.rglob("*") if x.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"})
+
 
 def read_csv_rows(path: Path):
     if not path.exists():
         return []
     with path.open("r", encoding="utf-8") as f:
         return list(csv.reader(f))
+
 
 def main():
     parser = argparse.ArgumentParser(description="Summarize FaceFind outputs and write a report JSON")
@@ -82,17 +84,11 @@ def main():
         report["known_classes_count"] = 0
 
     # Predictions
-    pred_summary = {
-        "total_rows": 0,
-        "by_label": {},
-        "confidence_mean": None,
-        "confidence_by_label_mean": {}
-    }
+    pred_summary = {"total_rows": 0, "by_label": {}, "confidence_mean": None, "confidence_by_label_mean": {}}
     if preds_csv.exists():
         prows = read_csv_rows(preds_csv)
         if prows and len(prows) > 1:
             header = [h.lower() for h in prows[0]]
-            idx_path = header.index("path") if "path" in header else None
             idx_label = header.index("pred_label") if "pred_label" in header else None
             idx_conf = header.index("confidence") if "confidence" in header else None
 
@@ -116,7 +112,7 @@ def main():
             pred_summary["total_rows"] = len(prows) - 1
             pred_summary["by_label"] = dict(counts)
             pred_summary["confidence_mean"] = round(mean(confs), 4) if confs else None
-            pred_summary["confidence_by_label_mean"] = {k: round(mean(v),4) for k, v in confs_by_label.items() if v}
+            pred_summary["confidence_by_label_mean"] = {k: round(mean(v), 4) for k, v in confs_by_label.items() if v}
     report["predictions"] = pred_summary
 
     # Derived metrics
@@ -133,6 +129,7 @@ def main():
         json.dump(report, f, indent=2)
     print(json.dumps(report, indent=2))
     print(f"[INFO] Wrote report → {save_path}")
+
 
 if __name__ == "__main__":
     main()

@@ -17,20 +17,19 @@ import json
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import joblib
 import numpy as np
 from PIL import Image
-
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
-import joblib
+from sklearn.svm import LinearSVC
 
 from config import get_profile
 from embedding_utils import embed_images, get_device, load_images
 
-IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff', '.webp'}
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
 
 
 def list_images_with_labels(root: Path) -> Tuple[List[Path], List[int], Dict[int, str]]:
@@ -49,7 +48,7 @@ def list_images_with_labels(root: Path) -> Tuple[List[Path], List[int], Dict[int
 
     for cls_dir in classes:
         cls_idx = name_to_int[cls_dir.name]
-        for p in sorted(cls_dir.rglob('*')):
+        for p in sorted(cls_dir.rglob("*")):
             if p.is_file() and p.suffix.lower() in IMAGE_EXTS:
                 paths.append(p)
                 labels.append(cls_idx)
@@ -69,8 +68,7 @@ def main():
     parser = argparse.ArgumentParser(description="Train a face classifier from a labeled folder tree")
     parser.add_argument("--data", required=True, help="Path to labeled people folder (each subfolder = class)")
     parser.add_argument("--out", default="models", help="Output directory (default: models)")
-    parser.add_argument("--strictness", default="strict", choices=["strict", "normal", "loose"],
-                        help="Profile from config.py (controls embedding batch size)")
+    parser.add_argument("--strictness", default="strict", choices=["strict", "normal", "loose"], help="Profile from config.py (controls embedding batch size)")
     parser.add_argument("--device", default=None, help="torch device: cuda, mps, or cpu (auto if unset)")
     args = parser.parse_args()
 
@@ -126,22 +124,12 @@ def main():
     if min_class < 2:
         print("[WARN] Some class has only 1 sample; skipping CV and defaulting to lin_svm.")
         best_name = "lin_svm"
-        best_clf = Pipeline([
-            ("scaler", StandardScaler(with_mean=True)),
-            ("clf", LinearSVC(class_weight="balanced", max_iter=10000))
-        ])
+        best_clf = Pipeline([("scaler", StandardScaler(with_mean=True)), ("clf", LinearSVC(class_weight="balanced", max_iter=10000))])
     else:
-        cv = StratifiedKFold(
-            n_splits=min(5, min_class),
-            shuffle=True,
-            random_state=42
-        )
+        cv = StratifiedKFold(n_splits=min(5, min_class), shuffle=True, random_state=42)
         models = {
             f"knn{k}": KNeighborsClassifier(n_neighbors=k, metric="euclidean", n_jobs=-1),
-            "lin_svm": Pipeline([
-                ("scaler", StandardScaler(with_mean=True)),
-                ("clf", LinearSVC(class_weight="balanced", max_iter=10000))
-            ])
+            "lin_svm": Pipeline([("scaler", StandardScaler(with_mean=True)), ("clf", LinearSVC(class_weight="balanced", max_iter=10000))]),
         }
 
         for name, clf in models.items():
@@ -179,6 +167,7 @@ def main():
     print(f"[SAVE] {out_dir / 'centroids.json'}")
 
     print("[DONE] Training complete.")
+
 
 if __name__ == "__main__":
     main()

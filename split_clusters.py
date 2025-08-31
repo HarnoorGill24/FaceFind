@@ -19,8 +19,10 @@ from pathlib import Path
 IMAGE_COL_CANDIDATES = ("path", "file", "image")
 LABEL_COL_CANDIDATES = ("cluster", "label", "prediction")
 
+
 def ensure_dir(p: Path) -> None:
     p.mkdir(parents=True, exist_ok=True)
+
 
 def place(dst_root: Path, label: str, src: Path, copy: bool) -> None:
     dst_dir = dst_root / (label or "unknown")
@@ -33,6 +35,7 @@ def place(dst_root: Path, label: str, src: Path, copy: bool) -> None:
             os.link(src, dst)  # hard link saves space
     except Exception:
         shutil.copy2(src, dst)
+
 
 def main() -> None:
     ap = argparse.ArgumentParser(description="Split images into folders by cluster/prediction")
@@ -51,6 +54,7 @@ def main() -> None:
     with csv_path.open(newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         headers = {h.lower(): h for h in (reader.fieldnames or [])}
+
         def pick(cands):
             for c in cands:
                 if c in headers:
@@ -62,8 +66,7 @@ def main() -> None:
 
         if not img_col or not lab_col:
             raise SystemExit(
-                f"CSV must contain image column in {IMAGE_COL_CANDIDATES} "
-                f"and label column in {LABEL_COL_CANDIDATES}. Found: {reader.fieldnames}"
+                f"CSV must contain image column in {IMAGE_COL_CANDIDATES} " f"and label column in {LABEL_COL_CANDIDATES}. Found: {reader.fieldnames}"
             )
 
         rows = list(reader)
@@ -91,6 +94,7 @@ def main() -> None:
 
     print(f"[DONE] Placed: {placed}, Skipped: {skipped}")
     print(f"[OUT] {out_dir}")
+
 
 if __name__ == "__main__":
     main()

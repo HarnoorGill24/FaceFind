@@ -1,21 +1,40 @@
+#!/usr/bin/env python3
+"""
+embedding_utils.py
+Shared utilities for device selection, image loading, and face embeddings.
+Used by: main.py, train_face_classifier.py, predict_face.py
+"""
 from __future__ import annotations
+
+import functools
+import os
 from pathlib import Path
-from typing import Iterable, List, Optional
+from typing import Iterable, Iterator, List, Optional, Sequence, TypeVar
 
 import numpy as np
-from PIL import Image
 import torch
 from facenet_pytorch import InceptionResnetV1
+from PIL import Image
+
+T = TypeVar("T")
 
 
-def get_device(device: Optional[str] = None) -> str:
-    """Select an available torch device.
-
-    If *device* is provided, it is returned as-is. Otherwise the function
-    prefers CUDA, then MPS, and finally CPU.
+# -------------------------
+# Device selection
+# -------------------------
+def get_device(preferred: Optional[str] = None) -> str:
     """
-    if device is not None:
-        return device
+    Decide which torch device to use.
+    Honors a user-preferred value if available; otherwise auto-selects.
+    """
+    if preferred:
+        pref = preferred.lower()
+        if pref == "cuda" and torch.cuda.is_available():
+            return "cuda"
+        if pref == "mps" and getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+            return "mps"
+        return "cpu"
+
     if torch.cuda.is_available():
         return "cuda"
     if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
@@ -23,68 +42,125 @@ def get_device(device: Optional[str] = None) -> str:
     return "cpu"
 
 
-def batched(iterable: Iterable, n: int):
-    """Yield lists of size *n* from *iterable*."""
-    batch = []
-    for x in iterable:
-        batch.append(x)
-        if len(batch) == n:
-            yield batch
-            batch = []
-    if batch:
-        yield batch
+# -------------------------
+# Model (cached per device)
+# -------------------------
+@functools.lru_cache(maxsize=2)
+def _get_embed_model(device: str) -> InceptionResnetV1:
+    """
+    Load Facenet InceptionResnetV1 once per device and cache it.
+    """
+    model = InceptionResnetV1(pretrained="vggface2").eval().to(device)
+    return model
 
 
-def load_images(paths: List[Path]) -> List[Optional[Image.Image]]:
-    """Load images from *paths* returning ``None`` for failures."""
+# -------------------------
+# Image I/O
+# -------------------------
+def load_images(paths: Sequence[Path]) -> List[Optional[Image.Image]]:
+    """
+    Load images as PIL (RGB). On failure returns None for that slot.
+    Preserves one-to-one alignment with `paths`.
+    """
     out: List[Optional[Image.Image]] = []
     for p in paths:
         try:
-            out.append(Image.open(p).convert("RGB"))
+            with Image.open(p) as im:
+                out.append(im.convert("RGB"))
         except Exception:
             out.append(None)
     return out
 
 
-def embed_images(
-    imgs: List[Optional[Image.Image]],
-    batch_size: int,
-    device: Optional[str] = None,
-) -> np.ndarray:
-    """Compute FaceNet embeddings for *imgs*.
-
-    ``None`` entries are skipped but still reserve a row in the output array.
-    Images are resized to 160x160 RGB and processed in batches. The returned
-    array has shape ``(N, 512)`` where ``N`` is ``len(imgs)``.
+# -------------------------
+# Preprocess → Tensor
+# -------------------------
+def _preprocess(im: Image.Image) -> torch.Tensor:
     """
-    device = get_device(device)
-    resnet = InceptionResnetV1(pretrained="vggface2").eval().to(device)
-    embs = np.zeros((len(imgs), 512), dtype=np.float32)
+    Facenet expects 160x160 RGB, float in [-1,1].
+    Returns CHW float32 tensor.
+    """
+    im2 = im.resize((160, 160), Image.BILINEAR)
+    # Make a writable copy to avoid the PyTorch "non-writable NumPy array" warning.
+    arr = np.asarray(im2, dtype=np.float32).copy()  # HWC, float32 in [0,255]
+    arr = arr / 255.0  # [0,1]
+    arr = (arr - 0.5) / 0.5  # [-1,1]
+    t = torch.from_numpy(arr).permute(2, 0, 1)  # CHW
+    return t
 
-    def preprocess(pil: Image.Image) -> Image.Image:
-        return pil.resize((160, 160))
 
-    idx = 0
-    for chunk in batched(imgs, batch_size):
-        good_idx: List[int] = []
-        tensors = []
-        for j, im in enumerate(chunk):
-            if im is None:
-                continue
-            try:
-                im2 = preprocess(im)
-                t = torch.from_numpy(np.asarray(im2)).permute(2, 0, 1).float() / 255.0
-                tensors.append(t.unsqueeze(0))
-                good_idx.append(j)
-            except Exception:
-                pass
-        if not tensors:
-            idx += len(chunk)
+# -------------------------
+# Batch embeddings
+# -------------------------
+def embed_images(
+    imgs: Sequence[Optional[Image.Image]],
+    device: Optional[str] = None,
+    batch_size: int = 64,
+) -> np.ndarray:
+    """
+    Compute embeddings for a list of PIL images (some entries may be None).
+    Returns an array of shape (len(imgs), 512). For images that failed to load,
+    a zero vector is returned at that index to preserve alignment with labels.
+    """
+    dev = get_device(device)
+    model = _get_embed_model(dev)
+
+    valid_ix: List[int] = []
+    batch_tensors: List[torch.Tensor] = []
+
+    for i, im in enumerate(imgs):
+        if im is None:
             continue
-        batch = torch.cat(tensors, dim=0).to(device)
-        with torch.no_grad():
-            feats = resnet(batch).cpu().numpy().astype(np.float32)
-        for j_local, vec in zip(good_idx, feats):
-            embs[idx + j_local, :] = vec
-        idx += len(chunk)
+        batch_tensors.append(_preprocess(im))
+        valid_ix.append(i)
+
+    # Nothing valid → return all zeros
+    d = 512
+    if not valid_ix:
+        return np.zeros((len(imgs), d), dtype=np.float32)
+
+    # Compute embeddings for valid images
+    embs_valid = np.zeros((len(valid_ix), d), dtype=np.float32)
+    with torch.no_grad():
+        if dev == "mps":
+            # Allow CPU fallback for kernels missing on MPS (safer on Apple Silicon).
+            os.environ.setdefault("PYTORCH_ENABLE_MPS_FALLBACK", "1")
+
+        for start in range(0, len(valid_ix), batch_size):
+            chunk = batch_tensors[start : start + batch_size]
+            batch = torch.stack(chunk).to(dev, non_blocking=True)
+            out = model(batch).cpu().numpy().astype(np.float32, copy=False)
+            embs_valid[start : start + out.shape[0]] = out
+
+    # Place into full array aligned to original indices, fill None-slots with zeros
+    embs = np.zeros((len(imgs), d), dtype=np.float32)
+    for dst_row, src_row in enumerate(valid_ix):
+        embs[src_row] = embs_valid[dst_row]
+
     return embs
+
+
+# -------------------------
+# General helpers
+# -------------------------
+def batched(iterable: Iterable[T], size: int) -> Iterator[List[T]]:
+    """Yield successive chunks (lists) of up to ``size`` items from iterable.
+
+    Works with any iterable. The final chunk may be shorter.
+    Example: list(batched(range(5), 2)) -> [[0, 1], [2, 3], [4]]
+    """
+    if size <= 0:
+        raise ValueError("size must be positive")
+
+    it = iter(iterable)
+    while True:
+        chunk: List[T] = []
+        try:
+            for _ in range(size):
+                chunk.append(next(it))
+        except StopIteration:
+            if chunk:
+                yield chunk
+            break
+        else:
+            yield chunk

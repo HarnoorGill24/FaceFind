@@ -4,41 +4,40 @@ FaceFind - verify_crops.py
 Re-run face detection on saved crops to filter out false positives.
 Writes a filtered manifest and optionally moves rejects.
 """
+from __future__ import annotations
 
 import argparse
 import csv
 import shutil
 import sys
 from pathlib import Path
-from typing import Any, Optional
 
-import numpy as np
-
-cv2: Optional[Any]
-try:
-    import cv2 as _cv2
-    cv2 = _cv2
-except Exception:
-    cv2 = None
-
-from PIL import Image
 from facenet_pytorch import MTCNN
+from PIL import Image
 
 from config import get_profile
 from embedding_utils import get_device
 
 
-def ensure_dir(p: Path):
+def ensure_dir(p: Path) -> None:
     p.mkdir(parents=True, exist_ok=True)
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(description="Verify crops by re-detecting faces, reject false positives")
     parser.add_argument("crops_dir", help="Directory of face crops to verify")
     parser.add_argument("--reject-dir", help="Where to move rejects (optional)")
-    parser.add_argument("--strictness", default="strict", choices=["strict", "normal", "loose"],
-                        help="Profile from config.py (controls thresholds)")
-    parser.add_argument("--device", default=None, help="torch device: cuda, mps, or cpu (auto if unset)")
+    parser.add_argument(
+        "--strictness",
+        default="strict",
+        choices=["strict", "normal", "loose"],
+        help="Profile from config.py (controls thresholds)",
+    )
+    parser.add_argument(
+        "--device",
+        default=None,
+        help="torch device: cuda, mps, or cpu (auto if unset)",
+    )
     args = parser.parse_args()
 
     prof = get_profile(args.strictness)
@@ -64,7 +63,7 @@ def main():
     if reject_dir:
         ensure_dir(reject_dir)
 
-    manifest_rows = []
+    manifest_rows: list[list[str]] = []
     kept, rejected = 0, 0
 
     for img_path in sorted(crops_dir.glob("*.jpg")):
@@ -80,7 +79,7 @@ def main():
             # Keep
             manifest_rows.append([str(img_path), f"{max(probs):.4f}"])
             kept += 1
-        except Exception as e:
+        except Exception as e:  # pragma: no cover
             print(f"[WARN] verify failed on {img_path}: {e}", file=sys.stderr)
             if reject_dir:
                 shutil.move(str(img_path), reject_dir / img_path.name)

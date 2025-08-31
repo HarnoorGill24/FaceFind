@@ -1,54 +1,56 @@
 #!/usr/bin/env python3
-"""
-FaceFind - main.py
-Scan images/videos, detect faces, save crops + manifest.
-Uses strictness profiles from config.py (MTCNN thresholds, min size).
-Device selection is shared via embedding_utils.get_device().
-"""
+from __future__ import annotations
+
 import argparse
 import csv
 import sys
 import time
 from pathlib import Path
-from typing import Any, Iterator, Optional, Tuple
+from typing import Iterator, Tuple
 
-import numpy as np
-
-cv2: Optional[Any]
-try:
-    import cv2 as _cv2
-    cv2 = _cv2
-except Exception:
-    cv2 = None
-
-from PIL import Image, ImageOps
 from facenet_pytorch import MTCNN
+from PIL import Image, ImageOps
 
 from config import get_profile
-from embedding_utils import get_device  # <-- shared util from Codex refactor
+from embedding_utils import get_device
 
-IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff', '.webp'}
-VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.mkv', '.m4v'}
+# Optional dependency: OpenCV; used only for video paths.
+try:
+    import cv2  # type: ignore[import-not-found]
+    import numpy as np
+except Exception:  # pragma: no cover
+    cv2 = None  # type: ignore[assignment]
+    np = None  # type: ignore[assignment]
+
+
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
+VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".m4v"}
+
 
 def is_image(p: Path) -> bool:
     return p.suffix.lower() in IMAGE_EXTS
 
+
 def is_video(p: Path) -> bool:
     return p.suffix.lower() in VIDEO_EXTS
 
+
 def iter_media(root: Path) -> Iterator[Path]:
-    # Deterministic ordering
-    for p in sorted(root.rglob('*')):
+    """Yield image/video files under root in deterministic order."""
+    for p in sorted(root.rglob("*")):
         if p.is_file() and (is_image(p) or is_video(p)):
             yield p
 
-def ensure_dir(p: Path):
+
+def ensure_dir(p: Path) -> None:
     p.mkdir(parents=True, exist_ok=True)
+
 
 def read_image_pil_rgb(path: Path) -> Image.Image:
     """Read still image via PIL and auto-fix EXIF orientation."""
     img = Image.open(path).convert("RGB")
     return ImageOps.exif_transpose(img)
+
 
 def frame_iterator(video_path: Path, step: int):
     """Yield (frame_index, frame_bgr) every `step` frames."""
@@ -68,14 +70,22 @@ def frame_iterator(video_path: Path, step: int):
         idx += 1
     cap.release()
 
-def bgr_to_pil_rgb(bgr: np.ndarray) -> Image.Image:
+
+def bgr_to_pil_rgb(bgr: "np.ndarray") -> Image.Image:
     """Convert OpenCV BGR frame to PIL RGB."""
-    if cv2 is None:
-        raise RuntimeError("OpenCV required for BGR->RGB conversion.")
+    if cv2 is None or np is None:
+        raise RuntimeError("OpenCV + NumPy required for BGR->RGB conversion.")
     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
     return Image.fromarray(rgb)
 
-def crop_and_save(pil_img: Image.Image, box: Tuple[int, int, int, int], out_dir: Path, stem: str, face_id: int) -> Path:
+
+def crop_and_save(
+    pil_img: Image.Image,
+    box: Tuple[int, int, int, int],
+    out_dir: Path,
+    stem: str,
+    face_id: int,
+) -> Path:
     x1, y1, x2, y2 = map(int, box)
     w = max(0, x2 - x1)
     h = max(0, y2 - y1)
@@ -86,24 +96,50 @@ def crop_and_save(pil_img: Image.Image, box: Tuple[int, int, int, int], out_dir:
     crop.save(out_path, quality=95)
     return out_path
 
-def main():
+
+def main() -> None:
     parser = argparse.ArgumentParser(description="FaceFind: scan media, detect faces, save crops + manifest")
     parser.add_argument("--input", required=True, help="Path to media folder (images and/or videos)")
     parser.add_argument("--output", default="outputs", help="Output root (default: outputs)")
-    parser.add_argument("--video-step", type=int, default=5, help="Take every Nth frame from video (default: 5)")
-    parser.add_argument("--strictness", default="strict", choices=["strict", "normal", "loose"],
-                        help="Threshold profile from config.py")
-    parser.add_argument("--device", default=None, help="torch device, e.g., cuda, mps, or cpu (auto if not set)")
-    parser.add_argument("--max-per-media", type=int, default=50, help="Max faces to save per media file (safety)")
-    parser.add_argument("--log-no-face", action="store_true",
-                        help="Log files/frames where no faces were detected")
-    parser.add_argument("--progress-every", type=int, default=100,
-                        help="Print a progress line every N media files (default: 100)")
+    parser.add_argument(
+        "--video-step",
+        type=int,
+        default=5,
+        help="Take every Nth frame from video (default: 5)",
+    )
+    parser.add_argument(
+        "--strictness",
+        default="strict",
+        choices=["strict", "normal", "loose"],
+        help="Threshold profile from config.py",
+    )
+    parser.add_argument(
+        "--device",
+        default=None,
+        help="torch device, e.g., cuda, mps, or cpu (auto if not set)",
+    )
+    parser.add_argument(
+        "--max-per-media",
+        type=int,
+        default=50,
+        help="Max faces to save per media file (safety)",
+    )
+    parser.add_argument(
+        "--log-no-face",
+        action="store_true",
+        help="Log files/frames where no faces were detected",
+    )
+    parser.add_argument(
+        "--progress-every",
+        type=int,
+        default=100,
+        help="Print a progress line every N media files (default: 100)",
+    )
     args = parser.parse_args()
 
     prof = get_profile(args.strictness)
 
-    # Shared device resolver (Codex refactor)
+    # Shared device resolver
     device = get_device(args.device)
     print(f"[INFO] Using device: {device}")
 
@@ -163,7 +199,7 @@ def main():
                             saved += 1
                             if saved >= args.max_per_media:
                                 break
-                        except Exception as e:
+                        except Exception as e:  # pragma: no cover
                             print(f"[WARN] crop save failed for {media_path}: {e}", file=sys.stderr)
 
                 elif is_video(media_path):
@@ -187,16 +223,19 @@ def main():
                                 saved_from_video += 1
                                 if saved_from_video >= args.max_per_media:
                                     break
-                            except Exception as e:
-                                print(f"[WARN] video crop save failed for {media_path}: {e}", file=sys.stderr)
+                            except Exception as e:  # pragma: no cover
+                                print(
+                                    f"[WARN] video crop save failed for {media_path}: {e}",
+                                    file=sys.stderr,
+                                )
                         if saved_from_video >= args.max_per_media:
                             break
                 else:
                     continue
-            except Exception as e:
+            except Exception as e:  # pragma: no cover
                 print(f"[WARN] Failed on {media_path}: {e}", file=sys.stderr)
 
-    except KeyboardInterrupt:
+    except KeyboardInterrupt:  # pragma: no cover
         print("[INFO] Interrupted. Writing partial manifest...", file=sys.stderr)
 
     # Always write whatever we have so far
@@ -210,6 +249,7 @@ def main():
     print(f"[INFO] Done. Media processed: {media_count}, faces saved: {face_total}, time: {dt:.1f}s")
     print(f"[INFO] Crops dir: {crops_dir}")
     print(f"[INFO] Manifest: {manifest_csv}")
+
 
 if __name__ == "__main__":
     main()

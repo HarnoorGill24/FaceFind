@@ -1,108 +1,168 @@
-
 #!/usr/bin/env python3
 """
-FaceFind - predict_face.py
-Load a trained classifier + labelmap, embed input images, and output predictions to CSV.
-Respects --strictness profile (embedding batch size).
+predict_face.py
+
+Given a directory (or single image) of crops/images, load embeddings and a
+trained classifier, and write a CSV of predictions.
+
+The CSV is written with a commented schema line and canonical headers:
+    # FaceFindPredictions,v1
+    path,label,prob,pred_index,raw_score
 """
+from __future__ import annotations
+
+# ruff: noqa: E402  # allow sys.path guard before some imports
+# --- robust import guard so we can import local packages even if CWD is elsewhere
+import sys
+from pathlib import Path
+
+_THIS = Path(__file__).resolve()
+ROOT = _THIS.parent  # repo root if this file lives at root
+for extra in (ROOT, ROOT.parent):  # also try parent-of-root (just in case)
+    s = str(extra)
+    if s and s not in sys.path:
+        sys.path.insert(0, s)
+# -------------------------------------------------------------------------------
+
 import argparse
 import csv
 import json
-from pathlib import Path
-from typing import Dict, List, Optional
+import math
+from typing import List, Optional
 
-import numpy as np
 import joblib
-
-from config import get_profile
-from embedding_utils import embed_images, get_device, load_images
+import numpy as np
 from PIL import Image
 
-IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff', '.webp'}
+from embedding_utils import embed_images, get_device, load_images
+
+# Prefer the shared schema; fall back to built-ins if package not available
+try:
+    from facefind.io_schema import PREDICTIONS_SCHEMA, SCHEMA_MAGIC
+except Exception:  # ModuleNotFoundError or anything else
+    # Fallback so runs never break if the package isn't on sys.path yet
+    print(
+        "[WARN] 'facefind.io_schema' not found; using built-in schema. " "Create facefind/io_schema.py to share schema across tools.",
+        file=sys.stderr,
+    )
+    PREDICTIONS_SCHEMA = ("path", "label", "prob")
+    SCHEMA_MAGIC = "# FaceFindPredictions,v1"
+
+
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
+
+
+def is_image(p: Path) -> bool:
+    return p.is_file() and p.suffix.lower() in IMAGE_EXTS
 
 
 def list_images(root: Path) -> List[Path]:
-    return sorted([p for p in root.rglob('*') if p.is_file() and p.suffix.lower() in IMAGE_EXTS])
+    if root.is_file() and is_image(root):
+        return [root]
+    return [p for p in sorted(root.rglob("*")) if is_image(p)]
 
-def main():
-    parser = argparse.ArgumentParser(description="Predict faces for a folder of images/crops")
-    parser.add_argument("input", help="Folder of images (e.g., outputs/crops or any folder of faces)")
-    parser.add_argument("--model-dir", default="models", help="Directory with face_classifier.joblib and labelmap.json")
-    parser.add_argument("--out", default="outputs/predictions.csv", help="Output CSV path")
-    parser.add_argument("--strictness", default="strict", choices=["strict","normal","loose"],
-                        help="Profile from config.py (controls embedding batch size)")
-    parser.add_argument("--device", default=None, help="torch device: cuda, mps, or cpu (auto if unset)")
-    args = parser.parse_args()
 
-    prof = get_profile(args.strictness)
+def softmax_row(x: np.ndarray) -> np.ndarray:
+    """Numerically stable softmax for a single row vector."""
+    m = np.max(x)
+    e = np.exp(x - m)
+    s = e.sum()
+    if s <= 0.0 or not math.isfinite(s):
+        return np.full_like(x, 1.0 / len(x), dtype=np.float64)
+    return e / s
+
+
+def main() -> None:
+    ap = argparse.ArgumentParser(description="Predict face labels for images/crops")
+    ap.add_argument("images", help="Image file or directory of images to classify")
+    ap.add_argument(
+        "--model-dir",
+        required=True,
+        help="Directory with face_classifier.joblib + labelmap.json",
+    )
+    ap.add_argument("--out", required=True, help="Output CSV path")
+    ap.add_argument(
+        "--device",
+        default=None,
+        help="torch device: mps, cuda, or cpu (auto if unset)",
+    )
+    ap.add_argument(
+        "--strictness",
+        default="strict",
+        choices=["strict", "normal", "loose"],
+        help="(unused here; kept for CLI consistency with other tools)",
+    )
+    args = ap.parse_args()
+
+    img_root = Path(args.images).expanduser().resolve()
+    model_dir = Path(args.model_dir).expanduser().resolve()
+    out_csv = Path(args.out).expanduser().resolve()
+
+    clf_path = model_dir / "face_classifier.joblib"
+    map_path = model_dir / "labelmap.json"
+    if not clf_path.exists():
+        raise SystemExit(f"Missing classifier: {clf_path}")
+    if not map_path.exists():
+        raise SystemExit(f"Missing label map: {map_path}")
+
+    # name->int (label string to class index)
+    labelmap = json.loads(map_path.read_text(encoding="utf-8"))
+    inv_map = {int(v): k for k, v in labelmap.items()}
+
+    paths = list_images(img_root)
+    if not paths:
+        raise SystemExit(f"No images found under {img_root}")
 
     device = get_device(args.device)
-    print(f"[INFO] Using device: {device} | embed_batch={prof.embed_batch}")
+    print(f"[INFO] Using device: {device}")
 
-    model_dir = Path(args.model_dir).expanduser().resolve()
-    model_path = model_dir / "face_classifier.joblib"
-    labelmap_path = model_dir / "labelmap.json"
+    # Load images → embeddings
+    print(f"[INFO] Loading {len(paths)} images…")
+    pil_list: List[Optional[Image.Image]] = load_images(paths)
+    X = embed_images(pil_list, device=device)  # embedding_utils handles MPS fallback env
 
-    if not model_path.exists():
-        raise SystemExit(f"Missing model: {model_path}")
-    if not labelmap_path.exists():
-        raise SystemExit(f"Missing label map: {labelmap_path}")
+    # Load classifier
+    clf = joblib.load(clf_path)
 
-    clf = joblib.load(model_path)
-    with labelmap_path.open("r", encoding="utf-8") as f:
-        name_to_int: Dict[str, int] = json.load(f)
-    int_to_name = {v: k for k, v in name_to_int.items()}
-
-    in_dir = Path(args.input).expanduser().resolve()
-    paths = list_images(in_dir)
-    if not paths:
-        raise SystemExit(f"No images found under {in_dir}")
-
-    imgs: List[Optional[Image.Image]] = load_images(paths)
-    X = embed_images(imgs, device=device, batch_size=prof.embed_batch)
-
-    # Predict
-    # Try to obtain a confidence score:
-    # - KNN: use inverse distance to nearest neighbor as a crude confidence
-    # - LinearSVC: use decision_function magnitude (per class); map to pseudo-prob via softmax over distances/scores
-    out_rows = [["path", "pred_label", "pred_index", "confidence"]]
-
-    # Detect model type
-    is_knn = hasattr(clf, "kneighbors")
-    has_decision = hasattr(clf, "decision_function")
-
-    if is_knn:
-        # Use KNN distances for a rough confidence
-        distances, indices = clf.kneighbors(X, n_neighbors=1, return_distance=True)
-        preds = clf.predict(X)
-        # Convert distance to pseudo-confidence
-        conf = 1.0 / (1.0 + distances.reshape(-1))
-        for p, yhat, c in zip(paths, preds, conf):
-            out_rows.append([str(p), int_to_name.get(int(yhat), str(yhat)), int(yhat), float(c)])
-    elif has_decision:
-        scores = clf.decision_function(X)
-        if scores.ndim == 1:
-            # binary case: convert to 2-class scores
-            scores = np.vstack([-scores, scores]).T
-        # softmax-like
-        e = np.exp(scores - scores.max(axis=1, keepdims=True))
-        probs = e / e.sum(axis=1, keepdims=True)
-        preds = probs.argmax(axis=1)
-        conf = probs.max(axis=1)
-        for p, yhat, c in zip(paths, preds, conf):
-            out_rows.append([str(p), int_to_name.get(int(yhat), str(yhat)), int(yhat), float(c)])
+    # Produce per-image class scores
+    if hasattr(clf, "predict_proba"):
+        probs = clf.predict_proba(X)  # (N, C)
+        raw_scores = probs
+        indices = np.argmax(probs, axis=1)
+    elif hasattr(clf, "decision_function"):
+        raw = clf.decision_function(X)  # (N, C) or (N,) for binary
+        if raw.ndim == 1:
+            raw = np.stack([-raw, raw], axis=1)
+        probs = np.vstack([softmax_row(r) for r in raw])  # pseudo-prob via softmax
+        raw_scores = raw
+        indices = np.argmax(probs, axis=1)
     else:
-        preds = clf.predict(X)
-        for p, yhat in zip(paths, preds):
-            out_rows.append([str(p), int_to_name.get(int(yhat), str(yhat)), int(yhat), ""])
+        # Fallback: only labels, no confidences
+        pred = clf.predict(X)
+        indices = np.asarray(pred, dtype=int)
+        C = max(len(inv_map), 1)
+        probs = np.full((len(paths), C), 1.0 / C, dtype=np.float64)
+        raw_scores = probs
 
-    out_csv = Path(args.out).expanduser().resolve()
+    # Write CSV
     out_csv.parent.mkdir(parents=True, exist_ok=True)
     with out_csv.open("w", newline="", encoding="utf-8") as f:
-        writer = csv.writer(f)
-        writer.writerows(out_rows)
+        w = csv.writer(f)
+        # Schema comment then canonical header
+        w.writerow([SCHEMA_MAGIC])
+        w.writerow(list(PREDICTIONS_SCHEMA) + ["pred_index", "raw_score"])  # extras are helpful for debugging
+
+        for i, p in enumerate(paths):
+            idx = int(indices[i])
+            best_label = inv_map.get(idx, str(idx))
+            best_prob = float(probs[i, idx])
+            best_raw = float(raw_scores[i, idx]) if raw_scores.ndim == 2 else best_prob
+
+            # Canonical first: path,label,prob
+            w.writerow([str(p), best_label, f"{best_prob:.6f}", idx, f"{best_raw:.6f}"])
 
     print(f"[INFO] Wrote predictions → {out_csv}")
+
 
 if __name__ == "__main__":
     main()

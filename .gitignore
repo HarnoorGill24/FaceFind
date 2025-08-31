@@ -45,3 +45,6 @@ pytest_cache/
 # --- Packaging / builds ---
 build/
 dist/
+
+# local data
+data/

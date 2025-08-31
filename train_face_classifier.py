@@ -11,17 +11,10 @@ Respects --strictness profile from config.py to set embedding batch size.
 """
 import argparse
 import json
-import math
-import os
 from pathlib import Path
 from typing import Dict, List, Tuple
 
 import numpy as np
-from PIL import Image
-from tqdm import tqdm
-
-import torch
-from facenet_pytorch import InceptionResnetV1
 
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.neighbors import KNeighborsClassifier
@@ -31,8 +24,10 @@ from sklearn.preprocessing import StandardScaler
 import joblib
 
 from config import get_profile
+from embedding_utils import embed_images, get_device, load_images
 
 IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff', '.webp'}
+
 
 def list_images_with_labels(root: Path) -> Tuple[List[Path], List[int], Dict[int, str]]:
     """
@@ -55,63 +50,6 @@ def list_images_with_labels(root: Path) -> Tuple[List[Path], List[int], Dict[int
                 labels.append(cls_idx)
     return paths, labels, inv_map
 
-def load_images(paths: List[Path]) -> List[Image.Image]:
-    out = []
-    for p in paths:
-        try:
-            img = Image.open(p).convert('RGB')
-            out.append(img)
-        except Exception:
-            out.append(None)
-    return out
-
-def batched(iterable, n):
-    batch = []
-    for x in iterable:
-        batch.append(x)
-        if len(batch) == n:
-            yield batch
-            batch = []
-    if batch:
-        yield batch
-
-def embed_images(imgs: List[Image.Image], device: str, batch_size: int) -> np.ndarray:
-    """
-    Compute FaceNet embeddings (InceptionResnetV1 pretrained on vggface2).
-    Returns Nx512 numpy array (bad images -> skipped as zeros).
-    """
-    resnet = InceptionResnetV1(pretrained='vggface2').eval().to(device)
-    embs = np.zeros((len(imgs), 512), dtype=np.float32)
-
-    def preprocess(pil):
-        # Facenet expects 160x160 floats normalized internally by the model's forward.
-        return pil.resize((160, 160))
-
-    idx = 0
-    for chunk in batched(imgs, batch_size):
-        good_idx = []
-        tensors = []
-        for j, im in enumerate(chunk):
-            if im is None:
-                continue
-            try:
-                im2 = preprocess(im)
-                t = torch.from_numpy(np.asarray(im2)).permute(2,0,1).float() / 255.0
-                tensors.append(t.unsqueeze(0))
-                good_idx.append(j)
-            except Exception:
-                pass
-        if not tensors:
-            idx += len(chunk)
-            continue
-        batch = torch.cat(tensors, dim=0).to(device)
-        with torch.no_grad():
-            feats = resnet(batch).cpu().numpy().astype(np.float32)
-        for j_local, vec in zip(good_idx, feats):
-            embs[idx + j_local, :] = vec
-        idx += len(chunk)
-    return embs
-
 def compute_class_centroids(X: np.ndarray, y: List[int]) -> Dict[int, List[float]]:
     centroids: Dict[int, List[float]] = {}
     y_arr = np.asarray(y)
@@ -131,15 +69,7 @@ def main():
 
     prof = get_profile(args.strictness)
 
-    # Device selection
-    device = args.device
-    if device is None:
-        if torch.cuda.is_available():
-            device = "cuda"
-        elif getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
-            device = "mps"
-        else:
-            device = "cpu"
+    device = get_device(args.device)
     print(f"[INFO] Using device: {device} | embed_batch={prof.embed_batch}")
 
     data_dir = Path(args.data).expanduser().resolve()

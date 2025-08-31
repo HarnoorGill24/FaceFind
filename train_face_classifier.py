@@ -12,7 +12,7 @@ Respects --strictness profile from config.py to set embedding batch size.
 import argparse
 import json
 from pathlib import Path
-from typing import Dict, List, Tuple
+from typing import Dict, List, Optional, Tuple
 
 import numpy as np
 
@@ -25,6 +25,7 @@ import joblib
 
 from config import get_profile
 from embedding_utils import embed_images, get_device, load_images
+from PIL import Image
 
 IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff', '.webp'}
 
@@ -81,7 +82,7 @@ def main():
         raise SystemExit(f"No images found under {data_dir}")
 
     print(f"[INFO] Found {len(paths)} images across {len(set(y))} classes.")
-    imgs = load_images(paths)
+    imgs: List[Optional[Image.Image]] = load_images(paths)
     X = embed_images(imgs, device=device, batch_size=prof.embed_batch)
 
     # Guard for tiny classes in KNN

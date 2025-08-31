@@ -35,9 +35,9 @@ def batched(iterable: Iterable, n: int):
         yield batch
 
 
-def load_images(paths: List[Path]) -> List[Image.Image]:
+def load_images(paths: List[Path]) -> List[Optional[Image.Image]]:
     """Load images from *paths* returning ``None`` for failures."""
-    out: List[Image.Image] = []
+    out: List[Optional[Image.Image]] = []
     for p in paths:
         try:
             out.append(Image.open(p).convert("RGB"))
@@ -47,12 +47,13 @@ def load_images(paths: List[Path]) -> List[Image.Image]:
 
 
 def embed_images(
-    imgs: List[Image.Image],
+    imgs: List[Optional[Image.Image]],
     batch_size: int,
     device: Optional[str] = None,
 ) -> np.ndarray:
     """Compute FaceNet embeddings for *imgs*.
 
+    ``None`` entries are skipped but still reserve a row in the output array.
     Images are resized to 160x160 RGB and processed in batches. The returned
     array has shape ``(N, 512)`` where ``N`` is ``len(imgs)``.
     """

@@ -97,7 +97,8 @@ Use a single flag everywhere: `--strictness {strict,normal,loose}`.
 ## Development
 
 ### Tests
-Tiny tests ensure config integrity and basic environment sanity.
+Tiny tests ensure config integrity and basic environment sanity. Run them from the
+repository root with [pytest](https://docs.pytest.org/):
 
 ```bash
 pip install pytest

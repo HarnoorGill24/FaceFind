@@ -45,7 +45,7 @@ def list_images_with_labels(root: Path) -> Tuple[List[Path], List[int], Dict[int
     labels: List[int] = []
     classes = sorted([d for d in root.iterdir() if d.is_dir()])
     name_to_int: Dict[str, int] = {d.name: i for i, d in enumerate(classes)}
-    inv_map: Dict[int, str] = {i: d.name for d, i in name_to_int.items()}
+    inv_map: Dict[int, str] = {i: name for name, i in name_to_int.items()}
 
     for cls_dir in classes:
         cls_idx = name_to_int[cls_dir.name]

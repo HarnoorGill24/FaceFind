@@ -115,11 +115,17 @@ def main():
     ensure_dir(manifests_dir)
 
     # Initialize MTCNN with profile thresholds
+    # Workaround: MTCNN on MPS can crash due to AdaptivePool bug. Use CPU for detection if MPS is selected.
+    mtcnn_device = device
+    if device == "mps":
+        print("[INFO] Detectors on MPS can fail due to adaptive pooling. Using CPU for MTCNN.")
+        mtcnn_device = "cpu"
+
     mtcnn = MTCNN(
         keep_all=True,
         thresholds=prof.mtcnn_thresholds,
         min_face_size=prof.min_size,
-        device=device
+        device=mtcnn_device,
     )
 
     manifest_rows = []

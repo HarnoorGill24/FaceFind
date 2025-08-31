@@ -38,10 +38,10 @@ python verify_crops.py \
   --strictness strict
 ```
 
-**Cluster and split to per-cluster folders (optional):**
+**Split a clustering/prediction CSV into per-label folders (optional):**
 ```bash
 python split_clusters.py \
-  outputs \
+  outputs/clusters.csv \
   outputs/people_by_cluster \
   --copy
 ```
@@ -97,7 +97,8 @@ Use a single flag everywhere: `--strictness {strict,normal,loose}`.
 ## Development
 
 ### Tests
-Tiny tests ensure config integrity and basic environment sanity.
+Tiny tests ensure config integrity and basic environment sanity. Run them from the
+repository root with [pytest](https://docs.pytest.org/):
 
 ```bash
 pip install pytest

@@ -11,13 +11,15 @@ import sys
 import time
 from dataclasses import asdict
 from pathlib import Path
-from typing import List, Tuple
+from typing import Any, Iterator, Optional, Tuple
 
 import numpy as np
 
+cv2: Optional[Any]
 try:
-    import cv2
-except Exception as e:
+    import cv2 as _cv2
+    cv2 = _cv2
+except Exception:
     cv2 = None
 
 import torch
@@ -36,7 +38,7 @@ def is_image(p: Path) -> bool:
 def is_video(p: Path) -> bool:
     return p.suffix.lower() in VIDEO_EXTS
 
-def iter_media(root: Path) -> List[Path]:
+def iter_media(root: Path) -> Iterator[Path]:
     for p in sorted(root.rglob('*')):
         if p.is_file() and (is_image(p) or is_video(p)):
             yield p

@@ -22,12 +22,12 @@ try:
 except Exception:
     cv2 = None
 
-import torch
 from PIL import Image
 from facenet_pytorch import MTCNN
 
 # Import strictness profile
 from config import get_profile
+from embedding_utils import get_device
 
 IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff', '.webp'}
 VIDEO_EXTS = {'.mp4', '.mov', '.avi', '.mkv', '.m4v'}
@@ -101,14 +101,7 @@ def main():
     prof = get_profile(args.strictness)
 
     # Select device
-    device = args.device
-    if device is None:
-        if torch.cuda.is_available():
-            device = "cuda"
-        elif getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
-            device = "mps"
-        else:
-            device = "cpu"
+    device = get_device(args.device)
     print(f"[INFO] Using device: {device}")
 
     input_dir = Path(args.input).expanduser().resolve()

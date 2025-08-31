@@ -1,69 +1,118 @@
 # FaceFind
 
-FaceFind is a local-first facial recognition and clustering system designed for large personal media libraries.  
-It scans photos and videos (frame-by-frame), extracts faces, clusters them by identity, and allows manual tagging to refine accuracy over time.
+End-to-end local pipeline for **face discovery and labeling** across large photo/video libraries.
+
+**Pipeline:** detect → verify → cluster → (optionally split to folders) → train classifier → predict → sort predictions.
 
 ---
 
-## ✨ Features (MVP)
-- **Frame-by-frame analysis** of photos and videos.
-- **Face clustering**: group unknown faces into clusters (e.g. Person A, Person B).
-- **Manual tagging**: assign names to clusters (e.g. "Alice", "Bob").
-- **Iterative feedback loop**: correct mislabels, and FaceFind updates its embeddings.
-- **Adjustable strictness threshold**: toggle between conservative (strict matches) and lenient (broader matches).
-- **Unknown detection**: flags faces that don’t match any known identity.
-- **NAS / external storage support**: process large corpora (1TB+).
+## Quick Start
 
----
-
-## 🚀 Installation
-
-### 1. Clone the repository
+### 1) Environment
 ```bash
-git clone git@github.com:HarnoorGill24/FaceFind.git
-cd FaceFind
+python -m venv .venv
+# macOS/Linux
+source .venv/bin/activate
+# Windows
+# .venv\Scripts\activate
 
-2. Create a virtual environment
-python3 -m venv .venv
-source .venv/bin/activate  # Mac/Linux
-3. Install dependencies
-(Coming soon: requirements.txt)
 pip install -r requirements.txt
-⚡ Usage (Planned)
-Run the analyzer
-python main.py --input /path/to/media/folder --output ./outputs
-Review clusters
-Clusters will be stored in outputs/clusters/.
-Unknown faces will be grouped for manual review.
-Tag clusters
-Rename cluster folders or provide a labels.json file mapping IDs → names.
-Iterate
-Re-run FaceFind with updated labels to improve accuracy.
-🧑‍💻 Tech Stack
-Python 3.11+
-PyTorch (MPS backend) — optimized for Apple Silicon (M1/M2/M3/M4).
-OpenCV — image & video frame extraction.
-FaceNet / ArcFace embeddings — robust face representation.
-Scikit-learn — clustering (DBSCAN, HDBSCAN, or k-means).
-(Optional) ONNX Runtime — future GPU acceleration.
-📂 Project Structure
-FaceFind/
-│── data/             # Input data (gitignored)
-│── outputs/          # Generated clusters & logs (gitignored)
-│── src/              # Core source code
-│   ├── face_extract.py
-│   ├── cluster.py
-│   ├── tagger.py
-│   └── main.py
-│── tests/            # Unit tests
-│── requirements.txt
-│── .gitignore
-│── README.md
-🔮 Roadmap
- v1: Core clustering & tagging pipeline
- v2: Web UI for review & tagging
- v3: Active learning (system learns from corrections automatically)
- v4: Packaging as a macOS app (.dmg installer)
-⚠️ Disclaimer
-This project is for personal use only.
-It is not designed for surveillance, security, or law-enforcement applications.
+```
+
+### 2) Run the full loop
+
+**Scan (images + videos):**
+```bash
+python main.py \
+  --input /PATH/TO/MEDIA \
+  --output ./outputs \
+  --video-step 5 \
+  --strictness strict
+```
+
+**Verify crops (reject low-quality / non-faces):**
+```bash
+python verify_crops.py \
+  outputs/crops \
+  --reject-dir outputs/rejects \
+  --strictness strict
+```
+
+**Cluster and split to per-cluster folders (optional):**
+```bash
+python split_clusters.py \
+  outputs \
+  outputs/people_by_cluster \
+  --copy
+```
+
+**Train a classifier on labeled folders:**
+```bash
+python train_face_classifier.py \
+  --data outputs/people_by_cluster \
+  --out models
+```
+
+**Predict on new crops / folders:**
+```bash
+python predict_face.py \
+  outputs/crops \
+  --model-dir models \
+  --out outputs/predictions.csv
+```
+
+**Apply predictions to accept/review folders (optional):**
+```bash
+python apply_predictions.py \
+  --in outputs/predictions.csv \
+  --people-dir outputs/people \
+  --out-dir outputs/sorted
+```
+
+---
+
+## Strictness Profiles (centralized in `config.py`)
+
+Use a single flag everywhere: `--strictness {strict,normal,loose}`.
+
+| Profile | MTCNN Thresholds (pnet / rnet / onet) | Min Face Size | Min Prob | Embed Batch |
+|---|---|---|---|---|
+| strict | 0.80 / 0.90 / 0.95 | 60 px | 0.95 | 64 |
+| normal | 0.70 / 0.80 / 0.92 | 40 px | 0.90 | 96 |
+| loose  | 0.60 / 0.70 / 0.90 | 32 px | 0.85 | 128 |
+
+> These defaults balance recall vs precision and memory usage. Override per-script with explicit flags if you need to.
+
+---
+
+## Troubleshooting
+
+- **False positives (e.g., crops of shirts):** use `--strictness strict` or raise `--min-prob 0.95` and `--min-size 60`.
+- **Killed with exit code 137 (OOM):** reduce dataset / run in shards, lower `--embed-batch` (e.g., 32), or try `strict` profile.
+- **kNN CV error with tiny classes:** ensure ≥3 samples per class or favor SVM fallback.
+- **Slow detection:** switch hardware backend to GPU/MPS if available; consider RetinaFace/InsightFace in roadmap.
+
+---
+
+## Development
+
+### Tests
+Tiny tests ensure config integrity and basic environment sanity.
+
+```bash
+pip install pytest
+pytest
+```
+
+### Repo Layout
+- `*.py` scripts: CLI entry points for each step.
+- `config.py`: strictness profiles (single source of truth).
+- `models/`: trained classifier artifacts.
+- `outputs/`: crops, manifests, clusters, predictions, etc.
+- `tests/`: small `pytest` suite.
+
+---
+
+## License
+MIT © 2025 <Your Name or Organization>
+See [`LICENSE`](LICENSE).

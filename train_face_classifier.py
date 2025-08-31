@@ -1,134 +1,210 @@
-# train_face_classifier.py
-# pip install facenet-pytorch torch torchvision scikit-learn joblib pillow
-import json, os, random, sys, glob
+
+#!/usr/bin/env python3
+"""
+FaceFind - train_face_classifier.py
+Create embeddings from a labeled folder tree and train a simple classifier.
+Select the best model via cross-validation and save:
+- models/face_classifier.joblib
+- models/labelmap.json
+- models/centroids.json
+Respects --strictness profile from config.py to set embedding batch size.
+"""
+import argparse
+import json
+import math
+import os
 from pathlib import Path
+from typing import Dict, List, Tuple
 
 import numpy as np
 from PIL import Image
+from tqdm import tqdm
 
 import torch
-from torchvision import transforms
 from facenet_pytorch import InceptionResnetV1
-from sklearn.svm import SVC
+
+from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.neighbors import KNeighborsClassifier
-from sklearn.model_selection import StratifiedKFold
-from sklearn.metrics import accuracy_score
-from joblib import dump
+from sklearn.svm import LinearSVC
+from sklearn.pipeline import Pipeline
+from sklearn.preprocessing import StandardScaler
+import joblib
 
-# --------------------
-# CONFIG
-# --------------------
-DATA_DIR = Path(sys.argv[1]) if len(sys.argv) > 1 else Path("data/people")
-OUT_DIR  = Path(sys.argv[2]) if len(sys.argv) > 2 else Path("models")
-OUT_DIR.mkdir(parents=True, exist_ok=True)
+from config import get_profile
 
-MIN_IMAGES_PER_CLASS = 2      # skip classes with fewer images
-USE_EXISTING_EMB = True       # if .npy with same stem exists, use it; else compute
-N_FOLDS = 5                   # CV folds
+IMAGE_EXTS = {'.jpg', '.jpeg', '.png', '.bmp', '.tif', '.tiff', '.webp'}
 
-# --------------------
-# DEVICE
-# --------------------
-device = torch.device("mps" if torch.backends.mps.is_available() else ("cuda" if torch.cuda.is_available() else "cpu"))
+def list_images_with_labels(root: Path) -> Tuple[List[Path], List[int], Dict[int, str]]:
+    """
+    Expects structure:
+      root/
+        person_a/ img1.jpg, img2.jpg, ...
+        person_b/ ...
+    Returns: (paths, y_ints, inv_labelmap)
+    """
+    paths, labels = [], []
+    classes = sorted([d for d in root.iterdir() if d.is_dir()])
+    name_to_int: Dict[str, int] = {d.name: i for i, d in enumerate(classes)}
+    inv_map: Dict[int, str] = {i: d.name for d, i in name_to_int.items()}
 
-# --------------------
-# EMBEDDING MODEL
-# --------------------
-resnet = InceptionResnetV1(pretrained='vggface2').eval().to(device)
-tfm = transforms.Compose([
-    transforms.Resize((160,160)),
-    transforms.ToTensor(),         # [0,1]
-    transforms.Normalize([0.5,0.5,0.5],[0.5,0.5,0.5])  # to [-1,1]
-])
+    for cls_dir in classes:
+        cls_idx = name_to_int[cls_dir.name]
+        for p in sorted(cls_dir.rglob('*')):
+            if p.suffix.lower() in IMAGE_EXTS and p.is_file():
+                paths.append(p)
+                labels.append(cls_idx)
+    return paths, labels, inv_map
 
-def embed_image(img_path: Path) -> np.ndarray:
-    # Try cached .npy with same stem
-    if USE_EXISTING_EMB:
-        npy = img_path.with_suffix(".npy")
-        if npy.exists():
-            return np.load(npy)
+def load_images(paths: List[Path]) -> List[Image.Image]:
+    out = []
+    for p in paths:
+        try:
+            img = Image.open(p).convert('RGB')
+            out.append(img)
+        except Exception:
+            out.append(None)
+    return out
 
-    img = Image.open(img_path).convert("RGB")
-    t = tfm(img).unsqueeze(0).to(device)
-    with torch.no_grad():
-        vec = resnet(t).cpu().numpy()[0]
-    return vec
+def batched(iterable, n):
+    batch = []
+    for x in iterable:
+        batch.append(x)
+        if len(batch) == n:
+            yield batch
+            batch = []
+    if batch:
+        yield batch
 
-# --------------------
-# LOAD DATA
-# --------------------
-classes = [d for d in DATA_DIR.iterdir() if d.is_dir()]
-classes = [c for c in classes if c.name.lower() not in ("unknown","misc","mixed")]
-X, y, files = [], [], []
+def embed_images(imgs: List[Image.Image], device: str, batch_size: int) -> np.ndarray:
+    """
+    Compute FaceNet embeddings (InceptionResnetV1 pretrained on vggface2).
+    Returns Nx512 numpy array (bad images -> skipped as zeros).
+    """
+    resnet = InceptionResnetV1(pretrained='vggface2').eval().to(device)
+    embs = np.zeros((len(imgs), 512), dtype=np.float32)
 
-label2id = {}
-for i, cls in enumerate(sorted(classes, key=lambda p: p.name.lower())):
-    imgs = []
-    for ext in ("*.jpg","*.jpeg","*.png","*.webp"):
-        imgs.extend(glob.glob(str(cls / ext)))
-    if len(imgs) < MIN_IMAGES_PER_CLASS:
-        print(f"Skipping '{cls.name}' (only {len(imgs)} images).")
-        continue
-    label2id[cls.name] = len(label2id)
+    def preprocess(pil):
+        # Facenet expects 160x160 floats normalized internally by the model's forward.
+        return pil.resize((160, 160))
 
-    for p in imgs:
-        vec = embed_image(Path(p))
-        X.append(vec)
-        y.append(label2id[cls.name])
-        files.append(p)
+    idx = 0
+    for chunk in batched(imgs, batch_size):
+        good_idx = []
+        tensors = []
+        for j, im in enumerate(chunk):
+            if im is None:
+                continue
+            try:
+                im2 = preprocess(im)
+                t = torch.from_numpy(np.asarray(im2)).permute(2,0,1).float() / 255.0
+                tensors.append(t.unsqueeze(0))
+                good_idx.append(j)
+            except Exception:
+                pass
+        if not tensors:
+            idx += len(chunk)
+            continue
+        batch = torch.cat(tensors, dim=0).to(device)
+        with torch.no_grad():
+            feats = resnet(batch).cpu().numpy().astype(np.float32)
+        for j_local, vec in zip(good_idx, feats):
+            embs[idx + j_local, :] = vec
+        idx += len(chunk)
+    return embs
 
-X = np.array(X, dtype=np.float32)
-y = np.array(y, dtype=np.int64)
+def compute_class_centroids(X: np.ndarray, y: List[int]) -> Dict[int, List[float]]:
+    centroids: Dict[int, List[float]] = {}
+    y_arr = np.asarray(y)
+    for cls in np.unique(y_arr):
+        m = X[y_arr == cls].mean(axis=0)
+        centroids[int(cls)] = m.tolist()
+    return centroids
 
-if len(np.unique(y)) < 2:
-    raise SystemExit("Need at least 2 labeled people with enough images to train a classifier.")
+def main():
+    parser = argparse.ArgumentParser(description="Train a face classifier from a labeled folder tree")
+    parser.add_argument("--data", required=True, help="Path to labeled people folder (each subfolder = class)")
+    parser.add_argument("--out", default="models", help="Output directory (default: models)")
+    parser.add_argument("--strictness", default="strict", choices=["strict", "normal", "loose"],
+                        help="Profile from config.py (controls embedding batch size)")
+    parser.add_argument("--device", default=None, help="torch device: cuda, mps, or cpu (auto if unset)")
+    args = parser.parse_args()
 
-print(f"Loaded {len(X)} embeddings across {len(np.unique(y))} classes.")
+    prof = get_profile(args.strictness)
 
-# --------------------
-# CROSS-VALIDATION: kNN vs Linear SVM
-# --------------------
-def cv_score(clf):
-    skf = StratifiedKFold(n_splits=min(N_FOLDS, np.min(np.bincount(y)) if len(np.unique(y))>1 else 2), shuffle=True, random_state=42)
-    scores = []
-    for train_idx, test_idx in skf.split(X, y):
-        clf.fit(X[train_idx], y[train_idx])
-        pred = clf.predict(X[test_idx])
-        scores.append(accuracy_score(y[test_idx], pred))
-    return float(np.mean(scores)), clf
+    # Device selection
+    device = args.device
+    if device is None:
+        if torch.cuda.is_available():
+            device = "cuda"
+        elif getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+            device = "mps"
+        else:
+            device = "cpu"
+    print(f"[INFO] Using device: {device} | embed_batch={prof.embed_batch}")
 
-candidates = [
-    ("knn3", KNeighborsClassifier(n_neighbors=1, weights="distance")),
-    ("knn5", KNeighborsClassifier(n_neighbors=3, weights="distance")),
-    ("lin_svm", SVC(kernel="linear", probability=True, class_weight="balanced")),
-]
+    data_dir = Path(args.data).expanduser().resolve()
+    out_dir = Path(args.out).expanduser().resolve()
+    out_dir.mkdir(parents=True, exist_ok=True)
 
-best_name, best_score, best_clf = None, -1.0, None
-for name, clf in candidates:
-    try:
-        score, _ = cv_score(clf)
-        print(f"{name} CV acc: {score:.3f}")
-        if score > best_score:
-            best_name, best_score, best_clf = name, score, clf
-    except Exception as e:
-        print(f"{name} failed CV: {e}")
+    paths, y, inv_map = list_images_with_labels(data_dir)
+    if len(paths) == 0:
+        raise SystemExit(f"No images found under {data_dir}")
 
-# Fit best on all data
-best_clf.fit(X, y)
-print(f"Selected: {best_name} (CV acc ~ {best_score:.3f})")
+    print(f"[INFO] Found {len(paths)} images across {len(set(y))} classes.")
+    imgs = load_images(paths)
+    X = embed_images(imgs, device=device, batch_size=prof.embed_batch)
 
-# --------------------
-# SAVE ARTIFACTS
-# --------------------
-dump(best_clf, OUT_DIR / "face_classifier.joblib")
-with open(OUT_DIR / "labelmap.json", "w") as f:
-    json.dump({int(v):k for k,v in label2id.items()}, f, indent=2)
+    # Guard for tiny classes in KNN
+    counts = {cls: y.count(cls) for cls in set(y)}
+    min_class = min(counts.values())
+    k = max(1, min(5, min_class - 1)) if min_class > 1 else 1
+    if k < 1:
+        k = 1
 
-# Optional: save class centroids for thresholding / “unknown”
-centroids = {}
-for cls_id in np.unique(y):
-    centroids[int(cls_id)] = X[y==cls_id].mean(axis=0).tolist()
-with open(OUT_DIR / "centroids.json", "w") as f:
-    json.dump(centroids, f)
+    # Models to compare via CV (StratifiedKFold)
+    models = {
+        f"knn{k}": KNeighborsClassifier(n_neighbors=k, metric="euclidean"),
+        "lin_svm": Pipeline([("scaler", StandardScaler(with_mean=True)), ("clf", LinearSVC())])
+    }
+    cv = StratifiedKFold(n_splits=min(5, min_class)) if min_class >= 3 else StratifiedKFold(n_splits=2)
+    scores = {}
 
-print("Saved:", OUT_DIR / "face_classifier.joblib", OUT_DIR / "labelmap.json", OUT_DIR / "centroids.json")
+    for name, clf in models.items():
+        try:
+            sc = cross_val_score(clf, X, y, cv=cv, scoring="accuracy")
+            scores[name] = float(sc.mean())
+            print(f"[CV] {name}: {sc.mean():.3f} ± {sc.std():.3f} (n={len(sc)})")
+        except Exception as e:
+            print(f"[WARN] CV failed for {name}: {e}")
+
+    if not scores:
+        print("[WARN] No CV scores produced; defaulting to lin_svm")
+        best_name = "lin_svm"
+    else:
+        best_name = max(scores, key=scores.get)
+
+    best_clf = models[best_name]
+    best_clf.fit(X, y)
+    print(f"[INFO] Selected: {best_name}")
+
+    # Save artifacts
+    model_path = out_dir / "face_classifier.joblib"
+    joblib.dump(best_clf, model_path)
+    print(f"[SAVE] {model_path}")
+
+    # Label map
+    labelmap = {inv_map[i]: i for i in inv_map}  # name->int
+    with (out_dir / "labelmap.json").open("w", encoding="utf-8") as f:
+        json.dump(labelmap, f, indent=2, ensure_ascii=False)
+    print(f"[SAVE] {out_dir / 'labelmap.json'}")
+
+    # Centroids (for distance-based analysis later)
+    centroids = compute_class_centroids(X, y)
+    with (out_dir / "centroids.json").open("w", encoding="utf-8") as f:
+        json.dump(centroids, f)
+    print(f"[SAVE] {out_dir / 'centroids.json'}")
+
+    print("[DONE] Training complete.")
+
+if __name__ == "__main__":
+    main()

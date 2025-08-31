@@ -12,10 +12,10 @@ from typing import List
 
 import numpy as np
 from PIL import Image
-import torch
 from facenet_pytorch import MTCNN
 
 from config import get_profile
+from embedding_utils import get_device
 
 def ensure_dir(p: Path):
     p.mkdir(parents=True, exist_ok=True)
@@ -37,14 +37,7 @@ def main():
     min_prob = prof.min_prob if args.min_prob is None else float(args.min_prob)
     min_size = prof.min_size if args.min_size is None else int(args.min_size)
 
-    device = args.device
-    if device is None:
-        if torch.cuda.is_available():
-            device = "cuda"
-        elif getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
-            device = "mps"
-        else:
-            device = "cpu"
+    device = get_device(args.device)
     print(f"[INFO] Using device: {device}")
 
     crops_dir = Path(args.crops_dir).expanduser().resolve()

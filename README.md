@@ -38,10 +38,10 @@ python verify_crops.py \
   --strictness strict
 ```
 
-**Cluster and split to per-cluster folders (optional):**
+**Split a clustering/prediction CSV into per-label folders (optional):**
 ```bash
 python split_clusters.py \
-  outputs \
+  outputs/clusters.csv \
   outputs/people_by_cluster \
   --copy
 ```

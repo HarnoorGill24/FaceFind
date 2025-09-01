@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import argparse
 import csv
-import time
 import logging
+import time
 from pathlib import Path
 from typing import Iterator, Tuple
 
@@ -167,83 +167,81 @@ def main() -> None:
         device=mtcnn_device,
     )
 
-    manifest_rows = []
     t0 = time.time()
     media_count = 0
     face_total = 0
-
-    # Process with graceful Ctrl-C handling
-    try:
-        for media_path in iter_media(input_dir):
-            media_count += 1
-            if args.progress_every and (media_count % args.progress_every == 0):
-                elapsed = time.time() - t0
-                logger.info("Progress: %d media processed in %.1fs", media_count, elapsed)
-
-            rel = media_path.relative_to(input_dir)
-            stem = media_path.stem
-            try:
-                if is_image(media_path):
-                    # Use EXIF-aware PIL path for images
-                    pil = read_image_pil_rgb(media_path)
-                    boxes, probs = mtcnn.detect(pil)
-                    if boxes is None or probs is None or len(boxes) == 0:
-                        if args.log_no_face:
-                            logger.info("No faces: %s", rel)
-                        continue
-                    saved = 0
-                    for i, (box, prob) in enumerate(zip(boxes, probs)):
-                        if prob is None or prob < prof.min_prob:
-                            continue
-                        try:
-                            out_path = crop_and_save(pil, box, crops_dir, stem, i)
-                            manifest_rows.append([str(out_path), str(rel), f"{prob:.4f}"])
-                            face_total += 1
-                            saved += 1
-                            if saved >= args.max_per_media:
-                                break
-                        except Exception as e:  # pragma: no cover
-                            logger.warning("crop save failed for %s: %s", media_path, e)
-
-                elif is_video(media_path):
-                    if cv2 is None:
-                        raise RuntimeError("OpenCV (cv2) required for video processing. pip install opencv-python")
-                    saved_from_video = 0
-                    for frame_idx, frame in frame_iterator(media_path, args.video_step):
-                        pil = bgr_to_pil_rgb(frame)
-                        boxes, probs = mtcnn.detect(pil)
-                        if boxes is None or probs is None or len(boxes) == 0:
-                            if args.log_no_face:
-                                logger.info("No faces: %s#frame=%d", rel, frame_idx)
-                            continue
-                        for i, (box, prob) in enumerate(zip(boxes, probs)):
-                            if prob is None or prob < prof.min_prob:
-                                continue
-                            try:
-                                out_path = crop_and_save(pil, box, crops_dir, f"{stem}_f{frame_idx}", i)
-                                manifest_rows.append([str(out_path), f"{rel}#frame={frame_idx}", f"{prob:.4f}"])
-                                face_total += 1
-                                saved_from_video += 1
-                                if saved_from_video >= args.max_per_media:
-                                    break
-                            except Exception as e:  # pragma: no cover
-                                logger.warning("video crop save failed for %s: %s", media_path, e)
-                        if saved_from_video >= args.max_per_media:
-                            break
-                else:
-                    continue
-            except Exception as e:  # pragma: no cover
-                logger.warning("Failed on %s: %s", media_path, e)
-
-    except KeyboardInterrupt:  # pragma: no cover
-        logger.info("Interrupted. Writing partial manifest...")
-
-    # Always write whatever we have so far
     manifest_csv = out_root / "crops_manifest.csv"
     with manifest_csv.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["crop_path", "source", "prob"])
-        writer.writerows(manifest_rows)
+
+        # Process with graceful Ctrl-C handling
+        try:
+            for media_path in iter_media(input_dir):
+                media_count += 1
+                if args.progress_every and (media_count % args.progress_every == 0):
+                    elapsed = time.time() - t0
+                    logger.info("Progress: %d media processed in %.1fs", media_count, elapsed)
+
+                rel = media_path.relative_to(input_dir)
+                stem = media_path.stem
+                try:
+                    if is_image(media_path):
+                        # Use EXIF-aware PIL path for images
+                        pil = read_image_pil_rgb(media_path)
+                        boxes, probs = mtcnn.detect(pil)
+                        if boxes is None or probs is None or len(boxes) == 0:
+                            if args.log_no_face:
+                                logger.info("No faces: %s", rel)
+                            continue
+                        saved = 0
+                        for i, (box, prob) in enumerate(zip(boxes, probs)):
+                            if prob is None or prob < prof.min_prob:
+                                continue
+                            try:
+                                out_path = crop_and_save(pil, box, crops_dir, stem, i)
+                                writer.writerow([str(out_path), str(rel), f"{prob:.4f}"])
+                                f.flush()
+                                face_total += 1
+                                saved += 1
+                                if saved >= args.max_per_media:
+                                    break
+                            except Exception as e:  # pragma: no cover
+                                logger.warning("crop save failed for %s: %s", media_path, e)
+
+                    elif is_video(media_path):
+                        if cv2 is None:
+                            raise RuntimeError("OpenCV (cv2) required for video processing. pip install opencv-python")
+                        saved_from_video = 0
+                        for frame_idx, frame in frame_iterator(media_path, args.video_step):
+                            pil = bgr_to_pil_rgb(frame)
+                            boxes, probs = mtcnn.detect(pil)
+                            if boxes is None or probs is None or len(boxes) == 0:
+                                if args.log_no_face:
+                                    logger.info("No faces: %s#frame=%d", rel, frame_idx)
+                                continue
+                            for i, (box, prob) in enumerate(zip(boxes, probs)):
+                                if prob is None or prob < prof.min_prob:
+                                    continue
+                                try:
+                                    out_path = crop_and_save(pil, box, crops_dir, f"{stem}_f{frame_idx}", i)
+                                    writer.writerow([str(out_path), f"{rel}#frame={frame_idx}", f"{prob:.4f}"])
+                                    f.flush()
+                                    face_total += 1
+                                    saved_from_video += 1
+                                    if saved_from_video >= args.max_per_media:
+                                        break
+                                except Exception as e:  # pragma: no cover
+                                    logger.warning("video crop save failed for %s: %s", media_path, e)
+                            if saved_from_video >= args.max_per_media:
+                                break
+                    else:
+                        continue
+                except Exception as e:  # pragma: no cover
+                    logger.warning("Failed on %s: %s", media_path, e)
+
+        except KeyboardInterrupt:  # pragma: no cover
+            logger.info("Interrupted. Writing partial manifest...")
 
     dt = time.time() - t0
     logger.info(

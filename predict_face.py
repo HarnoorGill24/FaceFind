@@ -28,6 +28,7 @@ import argparse
 import csv
 import json
 import math
+import logging
 from typing import List, Optional
 
 import joblib
@@ -36,14 +37,14 @@ from PIL import Image
 
 from embedding_utils import embed_images, get_device, load_images
 
+logger = logging.getLogger(__name__)
+
 # Prefer the shared schema; fall back to built-ins if package not available
 try:
     from facefind.io_schema import PREDICTIONS_SCHEMA, SCHEMA_MAGIC
 except Exception:  # ModuleNotFoundError or anything else
-    # Fallback so runs never break if the package isn't on sys.path yet
-    print(
-        "[WARN] 'facefind.io_schema' not found; using built-in schema. " "Create facefind/io_schema.py to share schema across tools.",
-        file=sys.stderr,
+    logger.warning(
+        "'facefind.io_schema' not found; using built-in schema. Create facefind/io_schema.py to share schema across tools."
     )
     PREDICTIONS_SCHEMA = ("path", "label", "prob")
     SCHEMA_MAGIC = "# FaceFindPredictions,v1"
@@ -114,10 +115,10 @@ def main() -> None:
         raise SystemExit(f"No images found under {img_root}")
 
     device = get_device(args.device)
-    print(f"[INFO] Using device: {device}")
+    logger.info("Using device: %s", device)
 
     # Load images → embeddings
-    print(f"[INFO] Loading {len(paths)} images…")
+    logger.info("Loading %d images…", len(paths))
     pil_list: List[Optional[Image.Image]] = load_images(paths)
     X = embed_images(pil_list, device=device)  # embedding_utils handles MPS fallback env
 
@@ -161,8 +162,9 @@ def main() -> None:
             # Canonical first: path,label,prob
             w.writerow([str(p), best_label, f"{best_prob:.6f}", idx, f"{best_raw:.6f}"])
 
-    print(f"[INFO] Wrote predictions → {out_csv}")
+    logger.info("Wrote predictions → %s", out_csv)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     main()

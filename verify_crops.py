@@ -9,8 +9,8 @@ from __future__ import annotations
 import argparse
 import csv
 import shutil
-import sys
 from pathlib import Path
+import logging
 
 from facenet_pytorch import MTCNN
 from PIL import Image
@@ -21,6 +21,9 @@ from embedding_utils import get_device
 
 def ensure_dir(p: Path) -> None:
     p.mkdir(parents=True, exist_ok=True)
+
+
+logger = logging.getLogger(__name__)
 
 
 def main() -> None:
@@ -40,15 +43,16 @@ def main() -> None:
     )
     args = parser.parse_args()
 
+    logging.basicConfig(level=logging.INFO)
     prof = get_profile(args.strictness)
 
     device = get_device(args.device)
-    print(f"[INFO] Using device: {device}")
+    logger.info("Using device: %s", device)
 
     # Workaround for MPS AdaptivePool bug
     mtcnn_device = device
     if device == "mps":
-        print("[INFO] Detectors on MPS can fail due to adaptive pooling. Using CPU for MTCNN.")
+        logger.info("Detectors on MPS can fail due to adaptive pooling. Using CPU for MTCNN.")
         mtcnn_device = "cpu"
 
     mtcnn = MTCNN(
@@ -80,7 +84,7 @@ def main() -> None:
             manifest_rows.append([str(img_path), f"{max(probs):.4f}"])
             kept += 1
         except Exception as e:  # pragma: no cover
-            print(f"[WARN] verify failed on {img_path}: {e}", file=sys.stderr)
+            logger.warning("verify failed on %s: %s", img_path, e)
             if reject_dir:
                 shutil.move(str(img_path), reject_dir / img_path.name)
             rejected += 1
@@ -91,10 +95,10 @@ def main() -> None:
         writer.writerow(["crop_path", "prob"])
         writer.writerows(manifest_rows)
 
-    print(f"[INFO] Verification complete. Kept: {kept}, Rejected: {rejected}")
-    print(f"[INFO] Filtered manifest: {out_csv}")
+    logger.info("Verification complete. Kept: %d, Rejected: %d", kept, rejected)
+    logger.info("Filtered manifest: %s", out_csv)
     if reject_dir:
-        print(f"[INFO] Rejects: {reject_dir}")
+        logger.info("Rejects: %s", reject_dir)
 
 
 if __name__ == "__main__":

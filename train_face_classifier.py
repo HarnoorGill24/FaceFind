@@ -17,6 +17,8 @@ import json
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
 
+import logging
+
 import joblib
 import numpy as np
 from PIL import Image
@@ -28,6 +30,8 @@ from sklearn.svm import LinearSVC
 
 from config import get_profile
 from embedding_utils import embed_images, get_device, load_images
+
+logger = logging.getLogger(__name__)
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
 
@@ -72,9 +76,10 @@ def main():
     parser.add_argument("--device", default=None, help="torch device: cuda, mps, or cpu (auto if unset)")
     args = parser.parse_args()
 
+    logging.basicConfig(level=logging.INFO)
     prof = get_profile(args.strictness)
     device = get_device(args.device)
-    print(f"[INFO] Using device: {device} | embed_batch={prof.embed_batch}")
+    logger.info("Using device: %s | embed_batch=%s", device, prof.embed_batch)
 
     data_dir = Path(args.data).expanduser().resolve()
     out_dir = Path(args.out).expanduser().resolve()
@@ -84,14 +89,14 @@ def main():
     if len(paths) == 0:
         raise SystemExit(f"No images found under {data_dir}")
 
-    print(f"[INFO] Found {len(paths)} images across {len(set(y))} classes.")
-    print("[INFO] Loading images...")
+    logger.info("Found %d images across %d classes.", len(paths), len(set(y)))
+    logger.info("Loading images...")
     imgs: List[Optional[Image.Image]] = load_images(paths)
 
     # Filter out failed image loads
     valid_pairs = [(p, im, lab) for p, im, lab in zip(paths, imgs, y) if im is not None]
     if len(valid_pairs) < len(paths):
-        print(f"[WARN] Dropped {len(paths) - len(valid_pairs)} unreadable images.")
+        logger.warning("Dropped %d unreadable images.", len(paths) - len(valid_pairs))
     if not valid_pairs:
         raise SystemExit("No valid images to embed after filtering.")
 
@@ -99,7 +104,7 @@ def main():
     imgs = [im for p, im, lab in valid_pairs]
     y = [lab for p, im, lab in valid_pairs]
 
-    print(f"[INFO] Embedding {len(paths)} images...")
+    logger.info("Embedding %d images...", len(paths))
     X = embed_images(imgs, device=device, batch_size=prof.embed_batch)
 
     # L2-normalize embeddings (idempotent if already normalized)
@@ -122,7 +127,7 @@ def main():
     # Choose / evaluate models
     scores = {}
     if min_class < 2:
-        print("[WARN] Some class has only 1 sample; skipping CV and defaulting to lin_svm.")
+        logger.warning("Some class has only 1 sample; skipping CV and defaulting to lin_svm.")
         best_name = "lin_svm"
         best_clf = Pipeline([("scaler", StandardScaler(with_mean=True)), ("clf", LinearSVC(class_weight="balanced", max_iter=10000))])
     else:
@@ -136,27 +141,27 @@ def main():
             try:
                 sc = cross_val_score(clf, X, y, cv=cv, scoring="accuracy")
                 scores[name] = float(sc.mean())
-                print(f"[CV] {name}: {sc.mean():.3f} ± {sc.std():.3f} (n={len(sc)})")
+                logger.info("[CV] %s: %.3f ± %.3f (n=%d)", name, sc.mean(), sc.std(), len(sc))
             except Exception as e:
-                print(f"[WARN] CV failed for {name}: {e}")
+                logger.warning("CV failed for %s: %s", name, e)
 
         best_name = max(scores, key=scores.get) if scores else "lin_svm"
         best_clf = models[best_name]
 
     # Fit best model on full data
     best_clf.fit(X, y)
-    print(f"[INFO] Selected: {best_name}")
+    logger.info("Selected: %s", best_name)
 
     # Save model
     model_path = out_dir / "face_classifier.joblib"
     joblib.dump(best_clf, model_path)
-    print(f"[SAVE] {model_path}")
+    logger.info("Saved %s", model_path)
 
     # Label map (name -> int)
     labelmap = {inv_map[i]: i for i in inv_map}  # name->int
     with (out_dir / "labelmap.json").open("w", encoding="utf-8") as f:
         json.dump(labelmap, f, indent=2, ensure_ascii=False)
-    print(f"[SAVE] {out_dir / 'labelmap.json'}")
+    logger.info("Saved %s", out_dir / "labelmap.json")
 
     # Centroids with class names as keys (easier to read)
     centroids = compute_class_centroids(X, y)  # int->vector
@@ -164,9 +169,9 @@ def main():
     centroids_named = {name_by_int[int_k]: v for int_k, v in centroids.items()}
     with (out_dir / "centroids.json").open("w", encoding="utf-8") as f:
         json.dump(centroids_named, f, indent=2)
-    print(f"[SAVE] {out_dir / 'centroids.json'}")
+    logger.info("Saved %s", out_dir / "centroids.json")
 
-    print("[DONE] Training complete.")
+    logger.info("Training complete.")
 
 
 if __name__ == "__main__":

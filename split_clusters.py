@@ -14,6 +14,7 @@ import argparse
 import csv
 import os
 import shutil
+import logging
 from pathlib import Path
 
 IMAGE_COL_CANDIDATES = ("path", "file", "image")
@@ -37,6 +38,9 @@ def place(dst_root: Path, label: str, src: Path, copy: bool) -> None:
         shutil.copy2(src, dst)
 
 
+logger = logging.getLogger(__name__)
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description="Split images into folders by cluster/prediction")
     ap.add_argument("csv_path", help="CSV with image path + cluster/label columns")
@@ -45,6 +49,7 @@ def main() -> None:
     ap.add_argument("--rel-root", default=None, help="Optional root to resolve relative CSV paths")
     args = ap.parse_args()
 
+    logging.basicConfig(level=logging.INFO)
     csv_path = Path(args.csv_path).expanduser().resolve()
     out_dir = Path(args.out_dir).expanduser().resolve()
     ensure_dir(out_dir)
@@ -92,8 +97,8 @@ def main() -> None:
         place(out_dir, label, p, copy=args.copy)
         placed += 1
 
-    print(f"[DONE] Placed: {placed}, Skipped: {skipped}")
-    print(f"[OUT] {out_dir}")
+    logger.info("Placed: %d, Skipped: %d", placed, skipped)
+    logger.info("Out dir: %s", out_dir)
 
 
 if __name__ == "__main__":

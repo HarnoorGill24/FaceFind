@@ -17,7 +17,7 @@ import argparse
 import csv
 import os
 import shutil
-import sys
+import logging
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
@@ -81,6 +81,9 @@ def detect_headers(headers) -> Tuple[Optional[str], Optional[str], Optional[str]
     return pick(IMAGE_COLS), pick(LABEL_COLS), pick(PROB_COLS)
 
 
+logger = logging.getLogger(__name__)
+
+
 def main():
     ap = argparse.ArgumentParser(description="Apply predictions to organize images by confidence.")
     ap.add_argument("csv_path", help="CSV with columns path,label,prob (header flexible)")
@@ -92,6 +95,7 @@ def main():
     ap.add_argument("--rel-root", default=None, help="Resolve relative CSV paths against this root (optional)")
     args = ap.parse_args()
 
+    logging.basicConfig(level=logging.INFO)
     csv_path = Path(args.csv_path).expanduser().resolve()
     out_root = Path(args.out_dir).expanduser().resolve()
     accept_root = out_root / "accept"
@@ -106,7 +110,7 @@ def main():
     rel_root = Path(args.rel_root).expanduser().resolve() if args.rel_root else None
 
     if args.review_threshold > args.accept_threshold:
-        print("[WARN] review-threshold > accept-threshold; swapping.", file=sys.stderr)
+        logger.warning("review-threshold > accept-threshold; swapping.")
         args.review_threshold, args.accept_threshold = args.accept_threshold, args.review_threshold
 
     # Stats
@@ -164,20 +168,26 @@ def main():
                 rejected += 1
 
     # Report
-    print(f"Accepted: {accepted}, sent to review: {reviewed}, rejected(below review): {rejected}, missing: {missing}")
-    print(f"Accept dir: {accept_root}")
-    print(f"Review dir: {review_root}")
+    logger.info(
+        "Accepted: %d, sent to review: %d, rejected(below review): %d, missing: %d",
+        accepted,
+        reviewed,
+        rejected,
+        missing,
+    )
+    logger.info("Accept dir: %s", accept_root)
+    logger.info("Review dir: %s", review_root)
     if people_dir:
-        print(f"People dir updated: {people_dir}")
+        logger.info("People dir updated: %s", people_dir)
 
     if by_label_accept:
-        print("\n[ACCEPT BY LABEL]")
+        logger.info("[ACCEPT BY LABEL]")
         for k, v in sorted(by_label_accept.items()):
-            print(f"  {k}: {v}")
+            logger.info("%s: %d", k, v)
     if by_label_review:
-        print("\n[REVIEW BY LABEL]")
+        logger.info("[REVIEW BY LABEL]")
         for k, v in sorted(by_label_review.items()):
-            print(f"  {k}: {v}")
+            logger.info("%s: %d", k, v)
 
 
 if __name__ == "__main__":

@@ -3,8 +3,8 @@ from __future__ import annotations
 
 import argparse
 import csv
-import sys
 import time
+import logging
 from pathlib import Path
 from typing import Iterator, Tuple
 
@@ -21,6 +21,9 @@ try:
 except Exception:  # pragma: no cover
     cv2 = None  # type: ignore[assignment]
     np = None  # type: ignore[assignment]
+
+
+logger = logging.getLogger(__name__)
 
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
@@ -58,7 +61,7 @@ def frame_iterator(video_path: Path, step: int):
         raise RuntimeError("OpenCV (cv2) required for video processing. pip install opencv-python")
     cap = cv2.VideoCapture(str(video_path))
     if not cap.isOpened():
-        print(f"[WARN] Could not open video: {video_path}", file=sys.stderr)
+        logger.warning("Could not open video: %s", video_path)
         return
     idx = 0
     while True:
@@ -141,7 +144,7 @@ def main() -> None:
 
     # Shared device resolver
     device = get_device(args.device)
-    print(f"[INFO] Using device: {device}")
+    logger.info("Using device: %s", device)
 
     input_dir = Path(args.input).expanduser().resolve()
     out_root = Path(args.output).expanduser().resolve()
@@ -154,7 +157,7 @@ def main() -> None:
     # Workaround: MTCNN on MPS can crash due to AdaptivePool bug. Use CPU for detection if MPS is selected.
     mtcnn_device = device
     if device == "mps":
-        print("[INFO] Detectors on MPS can fail due to adaptive pooling. Using CPU for MTCNN.")
+        logger.info("Detectors on MPS can fail due to adaptive pooling. Using CPU for MTCNN.")
         mtcnn_device = "cpu"
 
     mtcnn = MTCNN(
@@ -175,7 +178,7 @@ def main() -> None:
             media_count += 1
             if args.progress_every and (media_count % args.progress_every == 0):
                 elapsed = time.time() - t0
-                print(f"[INFO] Progress: {media_count} media processed in {elapsed:.1f}s")
+                logger.info("Progress: %d media processed in %.1fs", media_count, elapsed)
 
             rel = media_path.relative_to(input_dir)
             stem = media_path.stem
@@ -186,7 +189,7 @@ def main() -> None:
                     boxes, probs = mtcnn.detect(pil)
                     if boxes is None or probs is None or len(boxes) == 0:
                         if args.log_no_face:
-                            print(f"[INFO] No faces: {rel}")
+                            logger.info("No faces: %s", rel)
                         continue
                     saved = 0
                     for i, (box, prob) in enumerate(zip(boxes, probs)):
@@ -200,7 +203,7 @@ def main() -> None:
                             if saved >= args.max_per_media:
                                 break
                         except Exception as e:  # pragma: no cover
-                            print(f"[WARN] crop save failed for {media_path}: {e}", file=sys.stderr)
+                            logger.warning("crop save failed for %s: %s", media_path, e)
 
                 elif is_video(media_path):
                     if cv2 is None:
@@ -211,7 +214,7 @@ def main() -> None:
                         boxes, probs = mtcnn.detect(pil)
                         if boxes is None or probs is None or len(boxes) == 0:
                             if args.log_no_face:
-                                print(f"[INFO] No faces: {rel}#frame={frame_idx}")
+                                logger.info("No faces: %s#frame=%d", rel, frame_idx)
                             continue
                         for i, (box, prob) in enumerate(zip(boxes, probs)):
                             if prob is None or prob < prof.min_prob:
@@ -224,19 +227,16 @@ def main() -> None:
                                 if saved_from_video >= args.max_per_media:
                                     break
                             except Exception as e:  # pragma: no cover
-                                print(
-                                    f"[WARN] video crop save failed for {media_path}: {e}",
-                                    file=sys.stderr,
-                                )
+                                logger.warning("video crop save failed for %s: %s", media_path, e)
                         if saved_from_video >= args.max_per_media:
                             break
                 else:
                     continue
             except Exception as e:  # pragma: no cover
-                print(f"[WARN] Failed on {media_path}: {e}", file=sys.stderr)
+                logger.warning("Failed on %s: %s", media_path, e)
 
     except KeyboardInterrupt:  # pragma: no cover
-        print("[INFO] Interrupted. Writing partial manifest...", file=sys.stderr)
+        logger.info("Interrupted. Writing partial manifest...")
 
     # Always write whatever we have so far
     manifest_csv = out_root / "crops_manifest.csv"
@@ -246,10 +246,16 @@ def main() -> None:
         writer.writerows(manifest_rows)
 
     dt = time.time() - t0
-    print(f"[INFO] Done. Media processed: {media_count}, faces saved: {face_total}, time: {dt:.1f}s")
-    print(f"[INFO] Crops dir: {crops_dir}")
-    print(f"[INFO] Manifest: {manifest_csv}")
+    logger.info(
+        "Done. Media processed: %d, faces saved: %d, time: %.1fs",
+        media_count,
+        face_total,
+        dt,
+    )
+    logger.info("Crops dir: %s", crops_dir)
+    logger.info("Manifest: %s", manifest_csv)
 
 
 if __name__ == "__main__":
+    logging.basicConfig(level=logging.INFO)
     main()

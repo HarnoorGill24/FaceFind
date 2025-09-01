@@ -20,6 +20,7 @@ import json
 from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import mean
+import logging
 
 
 def count_images_in_dir(p: Path) -> int:
@@ -35,6 +36,9 @@ def read_csv_rows(path: Path):
         return list(csv.reader(f))
 
 
+logger = logging.getLogger(__name__)
+
+
 def main():
     parser = argparse.ArgumentParser(description="Summarize FaceFind outputs and write a report JSON")
     parser.add_argument("--outputs", default="outputs", help="Outputs root (default: outputs)")
@@ -43,6 +47,7 @@ def main():
     parser.add_argument("--save-json", default=None, help="Where to save the JSON report (default: outputs/report.json)")
     args = parser.parse_args()
 
+    logging.basicConfig(level=logging.INFO)
     outputs = Path(args.outputs).expanduser().resolve()
     models = Path(args.models).expanduser().resolve()
     preds_csv = Path(args.predictions).expanduser().resolve() if args.predictions else (outputs / "predictions.csv")
@@ -127,8 +132,8 @@ def main():
     save_path.parent.mkdir(parents=True, exist_ok=True)
     with save_path.open("w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)
-    print(json.dumps(report, indent=2))
-    print(f"[INFO] Wrote report → {save_path}")
+    logger.info(json.dumps(report, indent=2))
+    logger.info("Wrote report → %s", save_path)
 
 
 if __name__ == "__main__":

@@ -8,9 +8,9 @@ from __future__ import annotations
 
 import argparse
 import csv
+import logging
 import shutil
 from pathlib import Path
-import logging
 
 from facenet_pytorch import MTCNN
 from PIL import Image
@@ -67,33 +67,31 @@ def main() -> None:
     if reject_dir:
         ensure_dir(reject_dir)
 
-    manifest_rows: list[list[str]] = []
     kept, rejected = 0, 0
-
-    for img_path in sorted(crops_dir.glob("*.jpg")):
-        try:
-            pil = Image.open(img_path).convert("RGB")
-            boxes, probs = mtcnn.detect(pil)
-            if boxes is None or probs is None or len(boxes) == 0:
-                # Reject
-                if reject_dir:
-                    shutil.move(str(img_path), reject_dir / img_path.name)
-                rejected += 1
-                continue
-            # Keep
-            manifest_rows.append([str(img_path), f"{max(probs):.4f}"])
-            kept += 1
-        except Exception as e:  # pragma: no cover
-            logger.warning("verify failed on %s: %s", img_path, e)
-            if reject_dir:
-                shutil.move(str(img_path), reject_dir / img_path.name)
-            rejected += 1
 
     out_csv = crops_dir.parent.parent / "crops_verified.csv"
     with out_csv.open("w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow(["crop_path", "prob"])
-        writer.writerows(manifest_rows)
+        for img_path in sorted(crops_dir.glob("*.jpg")):
+            try:
+                pil = Image.open(img_path).convert("RGB")
+                boxes, probs = mtcnn.detect(pil)
+                if boxes is None or probs is None or len(boxes) == 0:
+                    # Reject
+                    if reject_dir:
+                        shutil.move(str(img_path), reject_dir / img_path.name)
+                    rejected += 1
+                    continue
+                # Keep
+                writer.writerow([str(img_path), f"{max(probs):.4f}"])
+                f.flush()
+                kept += 1
+            except Exception as e:  # pragma: no cover
+                logger.warning("verify failed on %s: %s", img_path, e)
+                if reject_dir:
+                    shutil.move(str(img_path), reject_dir / img_path.name)
+                rejected += 1
 
     logger.info("Verification complete. Kept: %d, Rejected: %d", kept, rejected)
     logger.info("Filtered manifest: %s", out_csv)

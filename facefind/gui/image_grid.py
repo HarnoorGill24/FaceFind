@@ -2,9 +2,15 @@
 
 from pathlib import Path  # For handling file paths
 
-from PyQt6.QtCore import QSize, Qt
-from PyQt6.QtGui import QIcon, QPixmap
-from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QVBoxLayout, QWidget
+try:  # pragma: no cover - optional dependency
+    from PyQt6.QtCore import QSize, Qt
+    from PyQt6.QtGui import QIcon, QPixmap
+    from PyQt6.QtWidgets import QListWidget, QListWidgetItem, QVBoxLayout, QWidget
+except ModuleNotFoundError as e:  # pragma: no cover
+    raise ImportError(
+        "PyQt6 is required for facefind.gui.image_grid."
+        " Install the 'PyQt6' package to use this module."
+    ) from e
 
 
 class ImageGrid(QWidget):

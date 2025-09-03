@@ -1,6 +1,12 @@
 """Qt worker object to manage subprocess execution."""
 
-from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, pyqtSignal
+try:  # pragma: no cover - optional dependency
+    from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, pyqtSignal
+except ModuleNotFoundError as e:  # pragma: no cover
+    raise ImportError(
+        "PyQt6 is required for facefind.gui.process_worker."
+        " Install the 'PyQt6' package to use this module."
+    ) from e
 
 
 class ProcessWorker(QObject):

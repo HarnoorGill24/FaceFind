@@ -5,10 +5,6 @@ import sys
 import traceback
 from pathlib import Path
 
-from PyQt6.QtWidgets import QApplication
-
-from .main_window import MainWindow
-
 
 def install_excepthook():
     def _hook(exctype, value, tb):
@@ -19,6 +15,10 @@ def install_excepthook():
 
 
 def main():
+    from PyQt6.QtWidgets import QApplication
+
+    from .main_window import MainWindow
+
     install_excepthook()
     app = QApplication(sys.argv)
     app.setApplicationName("FaceFind")

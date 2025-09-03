@@ -57,6 +57,8 @@ def main() -> None:
 
     rel_root = Path(args.rel_root).expanduser().resolve() if args.rel_root else None
 
+    placed = 0
+    skipped = 0
     with csv_path.open(newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         headers = {h.lower(): h for h in (reader.fieldnames or [])}
@@ -76,29 +78,24 @@ def main() -> None:
                 f"and label column in {LABEL_CANDIDATES}. Found: {reader.fieldnames}"
             )
 
-        rows = list(reader)
+        for row in reader:
+            raw_path = (row.get(img_col) or "").strip()
+            label = (row.get(lab_col) or "").strip()
+            if not raw_path or not label:
+                skipped += 1
+                continue
 
-    placed = 0
-    skipped = 0
+            p = Path(raw_path)
+            if not p.is_absolute() and rel_root:
+                p = (rel_root / p).resolve()
 
-    for row in rows:
-        raw_path = (row.get(img_col) or "").strip()
-        label = (row.get(lab_col) or "").strip()
-        if not raw_path or not label:
-            skipped += 1
-            continue
+            if not p.exists():
+                skipped += 1
+                continue
 
-        p = Path(raw_path)
-        if not p.is_absolute() and rel_root:
-            p = (rel_root / p).resolve()
-
-        if not p.exists():
-            skipped += 1
-            continue
-
-        safe_label = sanitize_label(label)
-        place(out_dir, safe_label, p, copy=args.copy)
-        placed += 1
+            safe_label = sanitize_label(label)
+            place(out_dir, safe_label, p, copy=args.copy)
+            placed += 1
 
     logger.info("Placed: %d, Skipped: %d", placed, skipped)
     logger.info("Out dir: %s", out_dir)

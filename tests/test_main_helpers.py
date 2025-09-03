@@ -1,3 +1,4 @@
+import sys
 from types import SimpleNamespace
 from pathlib import Path
 
@@ -47,7 +48,7 @@ def test_create_mtcnn_uses_cpu_on_mps(monkeypatch):
                 device=device,
             )
 
-    monkeypatch.setattr(main, "MTCNN", DummyMTCNN)
+    monkeypatch.setitem(sys.modules, "facenet_pytorch", SimpleNamespace(MTCNN=DummyMTCNN))
 
     _ = main.create_mtcnn(prof, device="mps")
     assert captured["device"] == "cpu"

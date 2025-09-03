@@ -44,7 +44,9 @@ def test_verify_crops_no_resource_warning(tmp_path, monkeypatch):
 
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
-        monkeypatch.setattr(sys, "argv", ["verify_crops", str(tmp_path)])
+        monkeypatch.setattr(
+            sys, "argv", ["verify_crops", "--input", str(tmp_path)]
+        )
         verify_crops.main()
 
     assert not _no_resource_warnings(w)

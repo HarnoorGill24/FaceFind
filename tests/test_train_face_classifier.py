@@ -57,7 +57,13 @@ def test_train_face_classifier_artifacts_and_cv(tmp_path: Path, monkeypatch: pyt
     monkeypatch.setattr(
         sys,
         "argv",
-        ["train_face_classifier", "--data", str(data_dir), "--out", str(out_dir)],
+        [
+            "train_face_classifier",
+            "--input",
+            str(data_dir),
+            "--models-dir",
+            str(out_dir),
+        ],
     )
     train_face_classifier.main()
 

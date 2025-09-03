@@ -34,8 +34,9 @@ def test_apply_predictions_label_sanitization_and_placement(tmp_path, monkeypatc
         "argv",
         [
             "apply_predictions",
+            "--input",
             str(csv_path),
-            "--out-dir",
+            "--output",
             str(out_dir),
             "--rel-root",
             str(tmp_path),

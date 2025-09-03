@@ -18,6 +18,7 @@ import shutil
 from pathlib import Path
 
 from facefind.utils import ensure_dir, sanitize_label
+from facefind.cli_common import add_log_level, add_version, validate_path
 
 from facefind.io_schema import PATH_ALIASES, LABEL_ALIASES, PROB_ALIASES
 LABEL_CANDIDATES = ("cluster",) + LABEL_ALIASES
@@ -40,22 +41,29 @@ def place(dst_root: Path, safe_label: str, src: Path, copy: bool) -> None:
 logger = logging.getLogger(__name__)
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description="Split images into folders by cluster/prediction")
-    ap.add_argument("csv_path", help="CSV with image path + cluster/label columns")
-    ap.add_argument("out_dir", help="Destination directory for per-label folders")
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(
+        prog="facefind-split", description="Split images into folders by cluster/prediction"
+    )
+    add_version(ap)
+    ap.add_argument("--input", required=True, help="CSV with image path + cluster/label columns")
+    ap.add_argument("--output", required=True, help="Destination directory for per-label folders")
     ap.add_argument("--copy", action="store_true", help="Copy files instead of hard-linking")
     ap.add_argument("--rel-root", default=None, help="Optional root to resolve relative CSV paths")
-    ap.add_argument("--log-level", default="INFO", help="Logging level (e.g., DEBUG, INFO)")
-    args = ap.parse_args()
+    ap.add_argument("--dry-run", action="store_true", help="Show actions without creating links/copies")
+    add_log_level(ap)
+    args = ap.parse_args(argv)
 
-    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    level = getattr(logging, args.log_level, logging.INFO)
     logging.basicConfig(level=level, force=True)
-    csv_path = Path(args.csv_path).expanduser().resolve()
-    out_dir = Path(args.out_dir).expanduser().resolve()
-    ensure_dir(out_dir)
+    csv_path = validate_path(Path(args.input).expanduser().resolve(), kind="input")
+    out_dir = Path(args.output).expanduser().resolve()
+    if not args.dry_run:
+        ensure_dir(out_dir)
 
     rel_root = Path(args.rel_root).expanduser().resolve() if args.rel_root else None
+    if rel_root and not rel_root.exists():
+        raise SystemExit(f"rel-root path does not exist: {rel_root}")
 
     placed = 0
     skipped = 0
@@ -94,12 +102,14 @@ def main() -> None:
                 continue
 
             safe_label = sanitize_label(label)
-            place(out_dir, safe_label, p, copy=args.copy)
+            if not args.dry_run:
+                place(out_dir, safe_label, p, copy=args.copy)
             placed += 1
 
     logger.info("Placed: %d, Skipped: %d", placed, skipped)
     logger.info("Out dir: %s", out_dir)
+    return 0
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

@@ -19,7 +19,7 @@ T = TypeVar("T")
 # -------------------------
 # Device selection
 # -------------------------
-def get_device(preferred: Optional[str] = None) -> str:
+def get_device(preferred: Optional[str] = "auto") -> str:
     """
     Decide which torch device to use.
     Honors a user-preferred value if available; otherwise auto-selects.
@@ -29,17 +29,19 @@ def get_device(preferred: Optional[str] = None) -> str:
     except ModuleNotFoundError as e:
         raise ImportError("torch is required for get_device()") from e
 
-    if preferred:
-        pref = preferred.lower()
-        allowed = {"cpu", "cuda", "mps"}
-        if pref not in allowed:
-            raise ValueError(f"Unknown device '{preferred}'. Allowed: {sorted(allowed)}")
-        if pref == "cuda" and torch.cuda.is_available():
-            return "cuda"
-        if pref == "mps" and getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
-            return "mps"
+    pref = (preferred or "auto").lower()
+    allowed = {"auto", "cpu", "cuda", "mps"}
+    if pref not in allowed:
+        raise ValueError(f"Unknown device '{preferred}'. Allowed: {sorted(allowed)}")
+
+    if pref == "cuda" and torch.cuda.is_available():
+        return "cuda"
+    if pref == "mps" and getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():
+        return "mps"
+    if pref == "cpu":
         return "cpu"
 
+    # Auto-detect
     if torch.cuda.is_available():
         return "cuda"
     if getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():

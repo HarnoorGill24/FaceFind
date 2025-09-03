@@ -26,6 +26,13 @@ from PIL import Image
 from facefind.embedding_utils import embed_images, get_device, load_images
 from facefind.io_schema import PREDICTIONS_SCHEMA, SCHEMA_MAGIC
 from facefind.utils import IMAGE_EXTS
+from facefind.cli_common import (
+    add_config_profile,
+    add_device,
+    add_log_level,
+    add_version,
+    validate_path,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -46,36 +53,23 @@ def softmax_row(x: np.ndarray) -> np.ndarray:
     return e / s
 
 
-def main() -> None:
-    ap = argparse.ArgumentParser(description="Predict face labels for images/crops")
-    ap.add_argument("images", help="Image file or directory of images to classify")
-    ap.add_argument(
-        "--model-dir",
-        required=True,
-        help="Directory with face_classifier.joblib + labelmap.json",
-    )
-    ap.add_argument("--out", required=True, help="Output CSV path")
-    ap.add_argument(
-        "--device",
-        default=None,
-        choices=["cpu", "cuda", "mps"],
-        help="torch device: mps, cuda, or cpu (auto if unset)",
-    )
-    ap.add_argument(
-        "--strictness",
-        default="strict",
-        choices=["strict", "normal", "loose"],
-        help="(unused here; kept for CLI consistency with other tools)",
-    )
-    ap.add_argument("--log-level", default="INFO", help="Logging level (e.g., DEBUG, INFO)")
-    args = ap.parse_args()
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(prog="facefind-predict", description="Predict face labels for images/crops")
+    add_version(ap)
+    ap.add_argument("--input", required=True, help="Image file or directory of images to classify")
+    ap.add_argument("--models-dir", required=True, help="Directory with face_classifier.joblib + labelmap.json")
+    ap.add_argument("--output", required=True, help="Output CSV path")
+    add_device(ap)
+    add_config_profile(ap)
+    add_log_level(ap)
+    args = ap.parse_args(argv)
 
-    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    level = getattr(logging, args.log_level, logging.INFO)
     logging.basicConfig(level=level, force=True)
 
-    img_root = Path(args.images).expanduser().resolve()
-    model_dir = Path(args.model_dir).expanduser().resolve()
-    out_csv = Path(args.out).expanduser().resolve()
+    img_root = validate_path(Path(args.input).expanduser().resolve(), kind="input")
+    model_dir = validate_path(Path(args.models_dir).expanduser().resolve(), kind="models-dir")
+    out_csv = Path(args.output).expanduser().resolve()
 
     clf_path = model_dir / "face_classifier.joblib"
     map_path = model_dir / "labelmap.json"
@@ -141,7 +135,8 @@ def main() -> None:
             w.writerow([str(p), best_label, f"{best_prob:.6f}", idx, f"{best_raw:.6f}"])
 
     logger.info("Wrote predictions → %s", out_csv)
+    return 0
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

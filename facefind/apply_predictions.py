@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import Dict, Optional, Tuple
 
 from facefind.utils import ensure_dir, sanitize_label
+from facefind.cli_common import add_log_level, add_version, validate_path
 
 from facefind.io_schema import PATH_ALIASES, LABEL_ALIASES, PROB_ALIASES
 
@@ -77,32 +78,50 @@ def detect_headers(headers) -> Tuple[Optional[str], Optional[str], Optional[str]
 logger = logging.getLogger(__name__)
 
 
-def main():
-    ap = argparse.ArgumentParser(description="Apply predictions to organize images by confidence.")
-    ap.add_argument("csv_path", help="CSV with columns path,label,prob (header flexible)")
-    ap.add_argument("--people-dir", default=None, help="If set, accepted items also link/copy to this labeled people tree (people_by_cluster)")
-    ap.add_argument("--out-dir", default="outputs/autosort", help="Where to place accept/review results (default: outputs/autosort)")
+def main(argv: list[str] | None = None) -> int:
+    ap = argparse.ArgumentParser(prog="facefind-apply", description="Apply predictions to organize images by confidence.")
+    add_version(ap)
+    ap.add_argument("--input", required=True, help="CSV with columns path,label,prob (header flexible)")
+    ap.add_argument(
+        "--people-dir",
+        default=None,
+        help="If set, accepted items also link/copy to this labeled people tree (people_by_cluster)",
+    )
+    ap.add_argument(
+        "--output",
+        default="outputs/autosort",
+        help="Where to place accept/review results (default: outputs/autosort)",
+    )
     ap.add_argument("--accept-threshold", type=float, default=0.80, help="Confidence >= this goes to ACCEPT (default: 0.80)")
-    ap.add_argument("--review-threshold", type=float, default=0.50, help="Confidence >= this and < accept-threshold goes to REVIEW (default: 0.50)")
+    ap.add_argument(
+        "--review-threshold",
+        type=float,
+        default=0.50,
+        help="Confidence >= this and < accept-threshold goes to REVIEW (default: 0.50)",
+    )
     ap.add_argument("--copy", action="store_true", help="Copy files instead of creating hard links")
     ap.add_argument("--rel-root", default=None, help="Resolve relative CSV paths against this root (optional)")
-    ap.add_argument("--log-level", default="INFO", help="Logging level (e.g., DEBUG, INFO)")
-    args = ap.parse_args()
+    ap.add_argument("--dry-run", action="store_true", help="Run without placing files")
+    add_log_level(ap)
+    args = ap.parse_args(argv)
 
-    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    level = getattr(logging, args.log_level, logging.INFO)
     logging.basicConfig(level=level, force=True)
-    csv_path = Path(args.csv_path).expanduser().resolve()
-    out_root = Path(args.out_dir).expanduser().resolve()
+    csv_path = validate_path(Path(args.input).expanduser().resolve(), kind="input")
+    out_root = Path(args.output).expanduser().resolve()
     accept_root = out_root / "accept"
     review_root = out_root / "review"
-    ensure_dir(accept_root)
-    ensure_dir(review_root)
+    if not args.dry_run:
+        ensure_dir(accept_root)
+        ensure_dir(review_root)
 
     people_dir = Path(args.people_dir).expanduser().resolve() if args.people_dir else None
-    if people_dir:
+    if people_dir and not args.dry_run:
         ensure_dir(people_dir)
 
     rel_root = Path(args.rel_root).expanduser().resolve() if args.rel_root else None
+    if rel_root and not rel_root.exists():
+        raise SystemExit(f"rel-root path does not exist: {rel_root}")
 
     if args.review_threshold > args.accept_threshold:
         logger.warning("review-threshold > accept-threshold; swapping.")
@@ -151,16 +170,16 @@ def main():
             safe_label = sanitize_label(label)
 
             if prob >= args.accept_threshold:
-                # ACCEPT
-                place(src, accept_root, label, copy=args.copy)
-                if people_dir:
-                    place(src, people_dir, label, copy=args.copy)
+                if not args.dry_run:
+                    place(src, accept_root, label, copy=args.copy)
+                    if people_dir:
+                        place(src, people_dir, label, copy=args.copy)
                 accepted += 1
                 by_label_accept[safe_label] = by_label_accept.get(safe_label, 0) + 1
 
             elif prob >= args.review_threshold:
-                # REVIEW
-                place(src, review_root, label, copy=args.copy)
+                if not args.dry_run:
+                    place(src, review_root, label, copy=args.copy)
                 reviewed += 1
                 by_label_review[safe_label] = by_label_review.get(safe_label, 0) + 1
             else:
@@ -188,7 +207,8 @@ def main():
         logger.info("[REVIEW BY LABEL]")
         for k, v in sorted(by_label_review.items()):
             logger.info("%s: %d", k, v)
+    return 0
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

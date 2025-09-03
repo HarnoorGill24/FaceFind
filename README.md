@@ -30,53 +30,53 @@ facefind-detect \
   --input /PATH/TO/MEDIA \
   --output ./outputs \
   --video-step 5 \
-  --strictness strict
+  --config-profile strict
 ```
 
 **Verify crops (reject low-quality / non-faces):**
 ```bash
 facefind-verify \
-  outputs/crops \
+  --input outputs/crops \
   --reject-dir outputs/rejects \
-  --strictness strict
+  --config-profile strict
 ```
 
 **Split a clustering/prediction CSV into per-label folders (optional):**
 ```bash
 facefind-split \
-  outputs/clusters.csv \
-  outputs/people_by_cluster \
+  --input outputs/clusters.csv \
+  --output outputs/people_by_cluster \
   --copy
 ```
 
 **Train a classifier on labeled folders:**
 ```bash
 facefind-train \
-  --data outputs/people_by_cluster \
-  --out models
+  --input outputs/people_by_cluster \
+  --models-dir models
 ```
 
 **Predict on new crops / folders:**
 ```bash
 facefind-predict \
-  outputs/crops \
-  --model-dir models \
-  --out outputs/predictions.csv
+  --input outputs/crops \
+  --models-dir models \
+  --output outputs/predictions.csv
 ```
 
 **Apply predictions to accept/review folders (optional):**
 ```bash
 facefind-apply \
-  --in outputs/predictions.csv \
+  --input outputs/predictions.csv \
   --people-dir outputs/people \
-  --out-dir outputs/sorted
+  --output outputs/sorted
 ```
 
 ---
 
 ## Strictness Profiles (centralized in `facefind/config.py`)
 
-Use a single flag everywhere: `--strictness {strict,normal,loose}`.
+Use a single flag everywhere: `--config-profile {strict,normal,loose}`.
 
 | Profile | MTCNN Thresholds (pnet / rnet / onet) | Min Face Size | Min Prob | Embed Batch |
 |---|---|---|---|---|
@@ -90,7 +90,7 @@ Use a single flag everywhere: `--strictness {strict,normal,loose}`.
 
 ## Troubleshooting
 
-- **False positives (e.g., crops of shirts):** use `--strictness strict` or raise `--min-prob 0.95` and `--min-size 60`.
+- **False positives (e.g., crops of shirts):** use `--config-profile strict` or raise `--min-prob 0.95` and `--min-size 60`.
 - **Killed with exit code 137 (OOM):** reduce dataset / run in shards, lower `--embed-batch` (e.g., 32), or try `strict` profile.
 - **kNN CV error with tiny classes:** ensure ≥3 samples per class or favor SVM fallback.
 - **Slow detection:** switch hardware backend to GPU/MPS if available; consider RetinaFace/InsightFace in roadmap.

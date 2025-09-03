@@ -16,7 +16,9 @@ def test_split_clusters_streams_large_csv(tmp_path, monkeypatch):
     out_dir = tmp_path / "out"
 
     tracemalloc.start()
-    monkeypatch.setattr(sys, "argv", ["split_clusters", str(csv_path), str(out_dir)])
+    monkeypatch.setattr(
+        sys, "argv", ["split_clusters", "--input", str(csv_path), "--output", str(out_dir)]
+    )
     split_clusters.main()
     current, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
@@ -40,7 +42,9 @@ def test_split_clusters_places_files(tmp_path, monkeypatch):
         "argv",
         [
             "split_clusters",
+            "--input",
             str(csv_path),
+            "--output",
             str(out_dir),
             "--rel-root",
             str(tmp_path),

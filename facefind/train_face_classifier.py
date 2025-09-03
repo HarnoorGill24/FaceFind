@@ -10,7 +10,7 @@ Select the best model via cross-validation and save:
 - models/train_paths.json
 - models/train_labels.json
 
-Respects --strictness profile from config.py to set embedding batch size.
+Respects --config-profile from config.py to set embedding batch size.
 """
 import argparse
 import json
@@ -31,6 +31,13 @@ from sklearn.svm import LinearSVC
 from facefind.config import get_profile
 from facefind.embedding_utils import embed_images, get_device, load_images
 from facefind.utils import IMAGE_EXTS
+from facefind.cli_common import (
+    add_config_profile,
+    add_device,
+    add_log_level,
+    add_version,
+    validate_path,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -67,23 +74,36 @@ def compute_class_centroids(X: np.ndarray, y: List[int]) -> Dict[int, List[float
     return centroids
 
 
-def main():
-    parser = argparse.ArgumentParser(description="Train a face classifier from a labeled folder tree")
-    parser.add_argument("--data", required=True, help="Path to labeled people folder (each subfolder = class)")
-    parser.add_argument("--out", default="models", help="Output directory (default: models)")
-    parser.add_argument("--strictness", default="strict", choices=["strict", "normal", "loose"], help="Profile from config.py (controls embedding batch size)")
-    parser.add_argument("--device", default=None, choices=["cpu", "cuda", "mps"], help="torch device: cuda, mps, or cpu (auto if unset)")
-    parser.add_argument("--log-level", default="INFO", help="Logging level (e.g., DEBUG, INFO)")
-    args = parser.parse_args()
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="facefind-train", description="Train a face classifier from a labeled folder tree"
+    )
+    add_version(parser)
+    parser.add_argument(
+        "--input",
+        required=True,
+        help="Path to labeled people folder (each subfolder = class)",
+    )
+    parser.add_argument(
+        "--models-dir",
+        default="models",
+        help="Directory to write trained model artifacts",
+    )
+    add_config_profile(parser)
+    add_device(parser)
+    add_log_level(parser)
+    args = parser.parse_args(argv)
 
-    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    level = getattr(logging, args.log_level, logging.INFO)
     logging.basicConfig(level=level, force=True)
-    prof = get_profile(args.strictness)
+    prof = get_profile(args.config_profile)
     device = get_device(args.device)
     logger.info("Using device: %s | embed_batch=%s", device, prof.embed_batch)
 
-    data_dir = Path(args.data).expanduser().resolve()
-    out_dir = Path(args.out).expanduser().resolve()
+    data_dir = validate_path(Path(args.input).expanduser().resolve(), kind="input")
+    if not data_dir.is_dir():
+        raise SystemExit(f"input path is not a directory: {data_dir}")
+    out_dir = Path(args.models_dir).expanduser().resolve()
     out_dir.mkdir(parents=True, exist_ok=True)
 
     paths, y, inv_map = list_images_with_labels(data_dir)
@@ -173,7 +193,8 @@ def main():
     logger.info("Saved %s", out_dir / "centroids.json")
 
     logger.info("Training complete.")
+    return 0
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

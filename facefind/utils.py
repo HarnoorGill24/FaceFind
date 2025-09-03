@@ -6,8 +6,8 @@ This module centralizes small helpers used across multiple scripts:
 * :func:`sanitize_label` – normalize labels for filesystem safety.
 * :func:`ensure_dir` – create directories as needed.
 
-The canonical file-extension set and :func:`ensure_dir` live in
-:mod:`utils.common` and are imported here for convenience.
+The canonical file-extension set is defined here to avoid heavy imports at CLI
+startup.
 """
 from __future__ import annotations
 
@@ -15,7 +15,13 @@ import os
 import re
 from pathlib import Path
 
-from utils.common import IMAGE_EXTS, ensure_dir
+IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
+
+
+def ensure_dir(p: Path) -> None:
+    """Ensure directory *p* exists, creating parents if needed."""
+    p.mkdir(parents=True, exist_ok=True)
+
 
 __all__ = ["IMAGE_EXTS", "ensure_dir", "is_image", "sanitize_label"]
 

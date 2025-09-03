@@ -19,27 +19,28 @@ from facefind.config import get_profile
 from facefind.embedding_utils import get_device
 from facefind.quality import passes_quality
 from facefind.utils import ensure_dir
+from facefind.cli_common import (
+    add_config_profile,
+    add_device,
+    add_log_level,
+    add_version,
+    validate_path,
+)
 
 
 logger = logging.getLogger(__name__)
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="Verify crops by re-detecting faces, reject false positives")
-    parser.add_argument("crops_dir", help="Directory of face crops to verify")
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="facefind-verify",
+        description="Verify crops by re-detecting faces, reject false positives",
+    )
+    add_version(parser)
+    parser.add_argument("--input", required=True, help="Directory of face crops to verify")
     parser.add_argument("--reject-dir", help="Where to move rejects (optional)")
-    parser.add_argument(
-        "--strictness",
-        default="strict",
-        choices=["strict", "normal", "loose"],
-        help="Profile from config.py (controls thresholds)",
-    )
-    parser.add_argument(
-        "--device",
-        default=None,
-        choices=["cpu", "cuda", "mps"],
-        help="torch device: cuda, mps, or cpu (auto if unset)",
-    )
+    add_config_profile(parser)
+    add_device(parser)
     parser.add_argument(
         "--min-var",
         type=float,
@@ -52,12 +53,12 @@ def main() -> None:
         default=0.05,
         help="Max fraction of under/over-exposed pixels",
     )
-    parser.add_argument("--log-level", default="INFO", help="Logging level (e.g., DEBUG, INFO)")
-    args = parser.parse_args()
+    add_log_level(parser)
+    args = parser.parse_args(argv)
 
-    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    level = getattr(logging, args.log_level, logging.INFO)
     logging.basicConfig(level=level, force=True)
-    prof = get_profile(args.strictness)
+    prof = get_profile(args.config_profile)
 
     device = get_device(args.device)
     logger.info("Using device: %s", device)
@@ -75,7 +76,9 @@ def main() -> None:
         device=mtcnn_device,
     )
 
-    crops_dir = Path(args.crops_dir).expanduser().resolve()
+    crops_dir = validate_path(Path(args.input).expanduser().resolve(), kind="input")
+    if not crops_dir.is_dir():
+        raise SystemExit(f"input path is not a directory: {crops_dir}")
     reject_dir = Path(args.reject_dir).expanduser().resolve() if args.reject_dir else None
     if reject_dir:
         ensure_dir(reject_dir)
@@ -125,7 +128,8 @@ def main() -> None:
     logger.info("Filtered manifest: %s", out_csv)
     if reject_dir:
         logger.info("Rejects: %s", reject_dir)
+    return 0
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

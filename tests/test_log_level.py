@@ -9,7 +9,19 @@ def test_log_level_debug_enables_debug_logs(tmp_path, monkeypatch, caplog):
     csv_path = tmp_path / "data.csv"
     csv_path.write_text(f"path,label\n{img},p1\n")
     out_dir = tmp_path / "out"
-    monkeypatch.setattr(sys, "argv", ["split_clusters", str(csv_path), str(out_dir), "--log-level", "DEBUG"])
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "split_clusters",
+            "--input",
+            str(csv_path),
+            "--output",
+            str(out_dir),
+            "--log-level",
+            "DEBUG",
+        ],
+    )
     split_clusters.main()
     logging.getLogger().addHandler(caplog.handler)
     logging.getLogger().setLevel(logging.DEBUG)

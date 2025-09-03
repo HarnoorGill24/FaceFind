@@ -6,15 +6,21 @@ import csv
 import logging
 import time
 from pathlib import Path
-from typing import Iterator, Tuple
+from typing import Iterator, Tuple, TYPE_CHECKING
 
-from facenet_pytorch import MTCNN
 from PIL import Image, ImageOps
 
 from facefind.config import get_profile
 from facefind.embedding_utils import get_device
 from facefind.file_exts import VIDEO_EXTS
 from facefind.utils import ensure_dir, is_image
+from facefind.cli_common import (
+    add_config_profile,
+    add_device,
+    add_log_level,
+    add_version,
+    validate_path,
+)
 
 # Optional dependency: OpenCV; used only for video paths.
 try:
@@ -23,6 +29,10 @@ try:
 except Exception:  # pragma: no cover
     cv2 = None  # type: ignore[assignment]
     np = None  # type: ignore[assignment]
+
+
+if TYPE_CHECKING:  # pragma: no cover
+    from facenet_pytorch import MTCNN
 
 
 logger = logging.getLogger(__name__)
@@ -45,7 +55,7 @@ def read_image_pil_rgb(path: Path) -> Image.Image:
         return ImageOps.exif_transpose(img)
 
 
-def create_mtcnn(profile, device: str) -> MTCNN:
+def create_mtcnn(profile, device: str):
     """Factory to construct an MTCNN detector honoring profile and device quirks.
 
     On Apple Silicon, MPS can crash inside adaptive pooling; for stability we
@@ -55,6 +65,8 @@ def create_mtcnn(profile, device: str) -> MTCNN:
     if device == "mps":
         logger.info("Detectors on MPS can fail due to adaptive pooling. Using CPU for MTCNN.")
         mtcnn_device = "cpu"
+
+    from facenet_pytorch import MTCNN
 
     return MTCNN(
         keep_all=True,
@@ -111,8 +123,11 @@ def crop_and_save(
     return out_path
 
 
-def main() -> None:
-    parser = argparse.ArgumentParser(description="FaceFind: scan media, detect faces, save crops + manifest")
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        prog="facefind-detect", description="Scan media, detect faces, save crops + manifest"
+        )
+    add_version(parser)
     parser.add_argument("--input", required=True, help="Path to media folder (images and/or videos)")
     parser.add_argument("--output", default="outputs", help="Output root (default: outputs)")
     parser.add_argument(
@@ -121,18 +136,8 @@ def main() -> None:
         default=5,
         help="Take every Nth frame from video (default: 5)",
     )
-    parser.add_argument(
-        "--strictness",
-        default="strict",
-        choices=["strict", "normal", "loose"],
-        help="Threshold profile from config.py",
-    )
-    parser.add_argument(
-        "--device",
-        default=None,
-        choices=["cpu", "cuda", "mps"],
-        help="torch device, e.g., cuda, mps, or cpu (auto if not set)",
-    )
+    add_config_profile(parser)
+    add_device(parser)
     parser.add_argument(
         "--max-per-media",
         type=int,
@@ -150,23 +155,21 @@ def main() -> None:
         default=100,
         help="Print a progress line every N media files (default: 100)",
     )
-    parser.add_argument(
-        "--log-level",
-        default="INFO",
-        help="Logging level (e.g., DEBUG, INFO)",
-    )
-    args = parser.parse_args()
+    add_log_level(parser)
+    args = parser.parse_args(argv)
 
-    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    level = getattr(logging, args.log_level, logging.INFO)
     logging.basicConfig(level=level, force=True)
 
-    prof = get_profile(args.strictness)
+    prof = get_profile(args.config_profile)
 
     # Shared device resolver
     device = get_device(args.device)
     logger.info("Using device: %s", device)
 
-    input_dir = Path(args.input).expanduser().resolve()
+    input_dir = validate_path(Path(args.input).expanduser().resolve(), kind="input")
+    if not input_dir.is_dir():
+        raise SystemExit(f"input path is not a directory: {input_dir}")
     out_root = Path(args.output).expanduser().resolve()
     crops_dir = out_root / "crops" / "pending"
     ensure_dir(crops_dir)
@@ -261,7 +264,8 @@ def main() -> None:
     )
     logger.info("Crops dir: %s", crops_dir)
     logger.info("Manifest: %s", manifest_csv)
+    return 0
 
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__":  # pragma: no cover
+    raise SystemExit(main())

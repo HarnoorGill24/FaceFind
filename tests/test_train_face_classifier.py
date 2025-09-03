@@ -1,11 +1,17 @@
 import json
-import subprocess
 import sys
+from pathlib import Path
 
+import joblib
+import numpy as np
 import pytest
+from sklearn.neighbors import KNeighborsClassifier
+
+from facefind import train_face_classifier
 
 
-def test_train_face_classifier_artifacts_and_cv(tmp_path):
+def test_train_face_classifier_artifacts_and_cv(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
+    # Create minimal dummy dataset: two people with two "images" each
     data_dir = tmp_path / "data"
     for person in ["alice", "bob"]:
         d = data_dir / person
@@ -15,42 +21,47 @@ def test_train_face_classifier_artifacts_and_cv(tmp_path):
 
     out_dir = tmp_path / "models"
 
-    script = """
-import json
-import sys
-import numpy as np
-from facefind import train_face_classifier
+    # Fakes to make the training deterministic and fast
+    def fake_load_images(paths):
+        # Return "images" matching the count of paths
+        return [object()] * len(paths)
 
-def fake_load_images(paths):
-    return [object()] * len(paths)
+    def fake_embed_images(imgs, device=None, batch_size=None):
+        # 4 embeddings: first two -> [1,0] (alice), next two -> [0,1] (bob)
+        return np.array(
+            [
+                [1.0, 0.0],
+                [1.0, 0.0],
+                [0.0, 1.0],
+                [0.0, 1.0],
+            ],
+            dtype=np.float32,
+        )
 
-def fake_embed_images(imgs, device=None, batch_size=None):
-    return np.array([
-        [1.0, 0.0],
-        [1.0, 0.0],
-        [0.0, 1.0],
-        [0.0, 1.0],
-    ], dtype=float)
+    def fake_get_device(preferred=None):
+        return "cpu"
 
-def fake_get_device(preferred=None):
-    return "cpu"
+    def fake_cv(clf, X, y, cv=None, scoring=None):
+        # Make kNN look strong so it's selected
+        if isinstance(clf, KNeighborsClassifier):
+            return np.array([0.9, 0.9])
+        return np.array([0.6, 0.6])
 
-def fake_cv(clf, X, y, cv=None, scoring=None):
-    import numpy as np
-    if "KNeighborsClassifier" in type(clf).__name__:
-        return np.array([0.9, 0.9])
-    return np.array([0.6, 0.6])
+    # Patch train pipeline pieces
+    monkeypatch.setattr(train_face_classifier, "load_images", fake_load_images)
+    monkeypatch.setattr(train_face_classifier, "embed_images", fake_embed_images)
+    monkeypatch.setattr(train_face_classifier, "get_device", fake_get_device)
+    monkeypatch.setattr(train_face_classifier, "cross_val_score", fake_cv)
 
-train_face_classifier.load_images = fake_load_images
-train_face_classifier.embed_images = fake_embed_images
-train_face_classifier.get_device = fake_get_device
-train_face_classifier.cross_val_score = fake_cv
-sys.argv = ["train_face_classifier", "--data", "{data}", "--out", "{out}"]
-train_face_classifier.main()
-""".format(data=data_dir, out=out_dir)
+    # Run CLI entrypoint
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        ["train_face_classifier", "--data", str(data_dir), "--out", str(out_dir)],
+    )
+    train_face_classifier.main()
 
-    subprocess.run([sys.executable, "-c", script], check=True)
-
+    # Artifacts should exist
     required = [
         "face_classifier.joblib",
         "labelmap.json",
@@ -62,15 +73,17 @@ train_face_classifier.main()
     for name in required:
         assert (out_dir / name).exists()
 
+    # Label map as expected
     with (out_dir / "labelmap.json").open() as f:
         labelmap = json.load(f)
     assert labelmap == {"alice": 0, "bob": 1}
 
+    # Centroids should match the fabricated embeddings
     with (out_dir / "centroids.json").open() as f:
         centroids = json.load(f)
     assert centroids["alice"] == pytest.approx([1.0, 0.0])
     assert centroids["bob"] == pytest.approx([0.0, 1.0])
 
-    with (out_dir / "face_classifier.joblib").open("rb") as f:
-        data = f.read()
-    assert b"KNeighborsClassifier" in data
+    # Chosen model should be a kNN classifier
+    model = joblib.load(out_dir / "face_classifier.joblib")
+    assert isinstance(model, KNeighborsClassifier)

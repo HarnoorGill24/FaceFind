@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Helpers for device selection, image loading, and face embeddings."""
+
 from __future__ import annotations
 
 import functools
 import logging
 import os
+from collections.abc import Iterable, Iterator, Sequence
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterable, Iterator, List, Optional, Sequence, TypeVar
+from typing import TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover - imports for type hints only
     import numpy as np
@@ -21,7 +23,7 @@ T = TypeVar("T")
 # -------------------------
 # Device selection
 # -------------------------
-def get_device(preferred: Optional[str] = "auto") -> str:
+def get_device(preferred: str | None = "auto") -> str:
     """
     Decide which torch device to use.
     Honors a user-preferred value if available; otherwise auto-selects.
@@ -71,7 +73,7 @@ def _get_embed_model(device: str) -> InceptionResnetV1:
 # -------------------------
 # Image I/O
 # -------------------------
-def load_images(paths: Sequence[Path]) -> List[Optional[Image.Image]]:
+def load_images(paths: Sequence[Path]) -> list[Image.Image | None]:
     """
     Load images as PIL (RGB). On failure returns None for that slot.
     Preserves one-to-one alignment with `paths`.
@@ -81,7 +83,7 @@ def load_images(paths: Sequence[Path]) -> List[Optional[Image.Image]]:
     except ModuleNotFoundError as e:
         raise ImportError("Pillow is required for load_images()") from e
 
-    out: List[Optional[Image.Image]] = []
+    out: list[Image.Image | None] = []
     for p in paths:
         try:
             with Image.open(p) as im:
@@ -126,8 +128,8 @@ def _preprocess(im: Image.Image) -> torch.Tensor:
 # Batch embeddings
 # -------------------------
 def embed_images(
-    imgs: Sequence[Optional[Image.Image]],
-    device: Optional[str] = None,
+    imgs: Sequence[Image.Image | None],
+    device: str | None = None,
     batch_size: int = 64,
 ) -> np.ndarray:
     """
@@ -147,8 +149,8 @@ def embed_images(
     dev = get_device(device)
     model = _get_embed_model(dev)
 
-    valid_ix: List[int] = []
-    batch_tensors: List[torch.Tensor] = []
+    valid_ix: list[int] = []
+    batch_tensors: list[torch.Tensor] = []
 
     for i, im in enumerate(imgs):
         if im is None:
@@ -185,7 +187,7 @@ def embed_images(
 # -------------------------
 # General helpers
 # -------------------------
-def batched(iterable: Iterable[T], size: int) -> Iterator[List[T]]:
+def batched(iterable: Iterable[T], size: int) -> Iterator[list[T]]:
     """Yield successive chunks (lists) of up to ``size`` items from iterable.
 
     Works with any iterable. The final chunk may be shorter.
@@ -196,7 +198,7 @@ def batched(iterable: Iterable[T], size: int) -> Iterator[List[T]]:
 
     it = iter(iterable)
     while True:
-        chunk: List[T] = []
+        chunk: list[T] = []
         try:
             for _ in range(size):
                 chunk.append(next(it))

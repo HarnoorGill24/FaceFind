@@ -9,6 +9,7 @@ This module centralizes small helpers used across multiple scripts:
 The canonical file-extension set is defined here to avoid heavy imports at CLI
 startup.
 """
+
 from __future__ import annotations
 
 import os
@@ -80,4 +81,3 @@ def sanitize_label(
         label = label[:max_length]
 
     return label or "unknown"
-

@@ -19,15 +19,15 @@ facefind-report = "facefind.report:main"
 include = ["facefind*"]
 
 [tool.black]
-line-length = 160
+line-length = 100
 target-version = ["py311"]
 
 [tool.ruff]
-line-length = 160
+line-length = 100
 target-version = "py311"
 
 [tool.ruff.lint]
-select = ["E", "F", "I"]  # E: pycodestyle, F: pyflakes, I: import sorting (isort)
+select = ["E", "F", "I", "B", "UP"]  # E: pycodestyle, F: pyflakes, I: import sorting (isort)
 ignore = ["E203"]         # black-compatible
 
 [tool.ruff.lint.per-file-ignores]

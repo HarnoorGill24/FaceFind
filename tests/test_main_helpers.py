@@ -56,4 +56,3 @@ def test_create_mtcnn_uses_cpu_on_mps(monkeypatch):
     captured.clear()
     _ = main.create_mtcnn(prof, device="cuda")
     assert captured["device"] == "cuda"
-

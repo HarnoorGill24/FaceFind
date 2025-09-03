@@ -47,4 +47,3 @@ def test_passes_quality_requires_opencv(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(quality, "cv2", None)
     with pytest.raises(ImportError, match="OpenCV"):
         quality.passes_quality(Image.new("L", (1, 1)))
-

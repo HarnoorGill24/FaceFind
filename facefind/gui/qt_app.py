@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Bootstraps the FaceFind Qt application."""
+
 import sys
 import traceback
 from pathlib import Path

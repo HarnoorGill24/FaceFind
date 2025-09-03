@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Generate a JSON and console summary of dataset and pipeline status."""
+
 import argparse
 import csv
 import json
@@ -28,11 +29,17 @@ logger = logging.getLogger(__name__)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Summarize FaceFind outputs and write a report JSON")
+    parser = argparse.ArgumentParser(
+        description="Summarize FaceFind outputs and write a report JSON"
+    )
     parser.add_argument("--outputs", default="outputs", help="Outputs root (default: outputs)")
     parser.add_argument("--models", default="models", help="Models directory (default: models)")
     parser.add_argument("--predictions", default=None, help="Path to predictions CSV (optional)")
-    parser.add_argument("--save-json", default=None, help="Where to save the JSON report (default: outputs/report.json)")
+    parser.add_argument(
+        "--save-json",
+        default=None,
+        help="Where to save the JSON report (default: outputs/report.json)",
+    )
     parser.add_argument("--log-level", default="INFO", help="Logging level (e.g., DEBUG, INFO)")
     args = parser.parse_args()
 
@@ -40,7 +47,11 @@ def main():
     logging.basicConfig(level=level, force=True)
     outputs = Path(args.outputs).expanduser().resolve()
     models = Path(args.models).expanduser().resolve()
-    preds_csv = Path(args.predictions).expanduser().resolve() if args.predictions else (outputs / "predictions.csv")
+    preds_csv = (
+        Path(args.predictions).expanduser().resolve()
+        if args.predictions
+        else (outputs / "predictions.csv")
+    )
 
     crops_manifest = outputs / "crops_manifest.csv"
     crops_verified = outputs / "crops_verified.csv"
@@ -79,7 +90,12 @@ def main():
         report["known_classes_count"] = 0
 
     # Predictions
-    pred_summary = {"total_rows": 0, "by_label": {}, "confidence_mean": None, "confidence_by_label_mean": {}}
+    pred_summary = {
+        "total_rows": 0,
+        "by_label": {},
+        "confidence_mean": None,
+        "confidence_by_label_mean": {},
+    }
     if preds_csv.exists():
         prows = read_csv_rows(preds_csv)
         if prows and len(prows) > 1:
@@ -101,24 +117,30 @@ def main():
                         confs.append(c)
                         if idx_label is not None and len(r) > idx_label:
                             confs_by_label[r[idx_label]].append(c)
-                    except Exception:
-                        pass
+                    except (TypeError, ValueError):
+                        continue
 
             pred_summary["total_rows"] = len(prows) - 1
             pred_summary["by_label"] = dict(counts)
             pred_summary["confidence_mean"] = round(mean(confs), 4) if confs else None
-            pred_summary["confidence_by_label_mean"] = {k: round(mean(v), 4) for k, v in confs_by_label.items() if v}
+            pred_summary["confidence_by_label_mean"] = {
+                k: round(mean(v), 4) for k, v in confs_by_label.items() if v
+            }
     report["predictions"] = pred_summary
 
     # Derived metrics
     if report["crops_total_manifest"]:
         kept = report["crops_verified_count"] or 0
-        report["reject_rate_pct"] = round(100.0 * (1.0 - kept / max(1, report["crops_total_manifest"])), 2)
+        report["reject_rate_pct"] = round(
+            100.0 * (1.0 - kept / max(1, report["crops_total_manifest"])), 2
+        )
     else:
         report["reject_rate_pct"] = None
 
     # Save JSON
-    save_path = Path(args.save_json).expanduser().resolve() if args.save_json else (outputs / "report.json")
+    save_path = (
+        Path(args.save_json).expanduser().resolve() if args.save_json else (outputs / "report.json")
+    )
     save_path.parent.mkdir(parents=True, exist_ok=True)
     with save_path.open("w", encoding="utf-8") as f:
         json.dump(report, f, indent=2)

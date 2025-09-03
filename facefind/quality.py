@@ -1,4 +1,5 @@
 """Image quality heuristics for filtering face crops."""
+
 from __future__ import annotations
 
 import numpy as np
@@ -18,9 +19,8 @@ def _require_cv2() -> None:
             "Install the 'opencv-python' package to enable this feature."
         )
 
-def variance_of_laplacian(
-    pil: Image.Image, box: tuple[int, int, int, int] | None = None
-) -> float:
+
+def variance_of_laplacian(pil: Image.Image, box: tuple[int, int, int, int] | None = None) -> float:
     """Return variance of Laplacian; crop to *box* if provided."""
     _require_cv2()
     if box is not None:
@@ -31,6 +31,7 @@ def variance_of_laplacian(
     else:
         gray = cv2.cvtColor(arr, cv2.COLOR_RGB2GRAY)
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
+
 
 def check_exposure(
     pil: Image.Image,
@@ -54,6 +55,7 @@ def check_exposure(
     if bright_ratio > tol:
         return "over"
     return "good"
+
 
 def passes_quality(
     pil: Image.Image,

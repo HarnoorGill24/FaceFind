@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 """High-level image analysis helpers for quality, captions, and search."""
+
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Tuple
+from collections.abc import Sequence
+from typing import TYPE_CHECKING
 
 from facefind.embedding_utils import get_device
 
@@ -14,26 +16,23 @@ if TYPE_CHECKING:  # pragma: no cover - import only for typing
 # Technical quality scoring
 # ---------------------------------------------------------------------------
 
+
 def variance_of_laplacian(img: np.ndarray) -> float:
     """Return the variance of the Laplacian -- a fast sharpness metric."""
     try:
         import cv2
     except ModuleNotFoundError as e:
-        raise ImportError(
-            "variance_of_laplacian requires 'cv2'. Install opencv-python."
-        ) from e
+        raise ImportError("variance_of_laplacian requires 'cv2'. Install opencv-python.") from e
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
 
-def exposure_metrics(img: np.ndarray) -> Dict[str, float]:
+def exposure_metrics(img: np.ndarray) -> dict[str, float]:
     """Compute simple under/over exposure fractions from a grayscale histogram."""
     try:
         import cv2
     except ModuleNotFoundError as e:
-        raise ImportError(
-            "exposure_metrics requires 'cv2'. Install opencv-python."
-        ) from e
+        raise ImportError("exposure_metrics requires 'cv2'. Install opencv-python.") from e
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     hist = cv2.calcHist([gray], [0], None, [256], [0, 256]).ravel()
     total = hist.sum() or 1.0
@@ -43,7 +42,7 @@ def exposure_metrics(img: np.ndarray) -> Dict[str, float]:
     }
 
 
-def face_region_sharpness(img: np.ndarray, device: Optional[str] = None) -> List[float]:
+def face_region_sharpness(img: np.ndarray, device: str | None = None) -> list[float]:
     """Compute sharpness for each detected face region using MTCNN."""
     try:
         from PIL import Image
@@ -64,7 +63,9 @@ def face_region_sharpness(img: np.ndarray, device: Optional[str] = None) -> List
     return sharpness
 
 
-def face_is_usable(img: np.ndarray, device: Optional[str] = None, *, min_sharpness: float = 100.0) -> bool:
+def face_is_usable(
+    img: np.ndarray, device: str | None = None, *, min_sharpness: float = 100.0
+) -> bool:
     """Return True if any detected face exceeds ``min_sharpness``."""
     vals = face_region_sharpness(img, device=device)
     return bool(vals) and max(vals) >= min_sharpness
@@ -74,7 +75,8 @@ def face_is_usable(img: np.ndarray, device: Optional[str] = None, *, min_sharpne
 # Auto captioning & tagging (no training)
 # ---------------------------------------------------------------------------
 
-def generate_caption(image: Image.Image, device: Optional[str] = None) -> str:
+
+def generate_caption(image: Image.Image, device: str | None = None) -> str:
     """Generate a plain-English caption using BLIP."""
     try:
         import torch
@@ -96,9 +98,9 @@ def generate_caption(image: Image.Image, device: Optional[str] = None) -> str:
 def zero_shot_tags(
     image: Image.Image,
     labels: Sequence[str],
-    device: Optional[str] = None,
+    device: str | None = None,
     top_k: int = 5,
-) -> List[Tuple[str, float]]:
+) -> list[tuple[str, float]]:
     """Return top-k labels using CLIP zero-shot classification."""
     try:
         import torch
@@ -112,7 +114,7 @@ def zero_shot_tags(
     inputs = processor(text=list(labels), images=image, return_tensors="pt", padding=True).to(dev)
     with torch.no_grad():
         logits = model(**inputs).logits_per_image.softmax(dim=-1).cpu().numpy().ravel()
-    pairs = list(zip(labels, logits.tolist()))
+    pairs = list(zip(labels, logits.tolist(), strict=False))
     pairs.sort(key=lambda x: x[1], reverse=True)
     return pairs[:top_k]
 
@@ -121,10 +123,11 @@ def zero_shot_tags(
 # Object detection (e.g., soccer context)
 # ---------------------------------------------------------------------------
 
+
 def detect_objects(
     img: np.ndarray,
     model_name: str = "yolov8n.pt",
-    device: Optional[str] = None,
+    device: str | None = None,
 ):
     """Run YOLOv8/11 via the ultralytics package and return the first result."""
     from ultralytics import YOLO  # lazy
@@ -139,7 +142,8 @@ def detect_objects(
 # OCR (e.g., jersey numbers, signage)
 # ---------------------------------------------------------------------------
 
-def ocr_text(img: np.ndarray, device: Optional[str] = None) -> List[str]:
+
+def ocr_text(img: np.ndarray, device: str | None = None) -> list[str]:
     """Extract text using PaddleOCR. Returns a list of strings."""
     from paddleocr import PaddleOCR  # lazy
 
@@ -147,7 +151,7 @@ def ocr_text(img: np.ndarray, device: Optional[str] = None) -> List[str]:
     use_gpu = dev in {"cuda", "mps"}
     ocr = PaddleOCR(use_angle_cls=True, lang="en", use_gpu=use_gpu, show_log=False)
     result = ocr.ocr(img, cls=True)
-    texts: List[str] = []
+    texts: list[str] = []
     for line in result:
         for _, (text, _conf) in line:
             texts.append(text)
@@ -158,7 +162,8 @@ def ocr_text(img: np.ndarray, device: Optional[str] = None) -> List[str]:
 # Near-duplicate & similarity search
 # ---------------------------------------------------------------------------
 
-def clip_embeddings(images: Sequence[Image.Image], device: Optional[str] = None) -> np.ndarray:
+
+def clip_embeddings(images: Sequence[Image.Image], device: str | None = None) -> np.ndarray:
     """Return L2-normalized CLIP embeddings for a list of PIL images."""
     try:
         import numpy as np
@@ -173,7 +178,7 @@ def clip_embeddings(images: Sequence[Image.Image], device: Optional[str] = None)
     dev = get_device(device)
     processor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
     model = CLIPModel.from_pretrained("openai/clip-vit-base-patch32").to(dev)
-    feats: List[np.ndarray] = []
+    feats: list[np.ndarray] = []
     for im in images:
         inputs = processor(images=im, return_tensors="pt").to(dev)
         with torch.no_grad():
@@ -205,16 +210,16 @@ def perceptual_hash(image: Image.Image) -> str:
 
 def find_near_duplicates(
     images: Sequence[Image.Image],
-    device: Optional[str] = None,
+    device: str | None = None,
     thresh: float = 0.95,
-) -> Dict[int, List[int]]:
+) -> dict[int, list[int]]:
     """Return a mapping of image index -> list of near-duplicate indices."""
     embs = clip_embeddings(images, device=device)
     index = build_faiss_index(embs)
     sims, idxs = index.search(embs, k=embs.shape[0])
-    groups: Dict[int, List[int]] = {}
-    for i, (sim_row, idx_row) in enumerate(zip(sims, idxs)):
-        dup = [j for s, j in zip(sim_row[1:], idx_row[1:]) if s >= thresh]
+    groups: dict[int, list[int]] = {}
+    for i, (sim_row, idx_row) in enumerate(zip(sims, idxs, strict=False)):
+        dup = [j for s, j in zip(sim_row[1:], idx_row[1:], strict=False) if s >= thresh]
         if dup:
             groups[i] = dup
     return groups

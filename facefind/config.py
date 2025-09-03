@@ -1,7 +1,6 @@
 """Configuration profiles for FaceFind detection and embedding."""
 
 from dataclasses import dataclass
-from typing import Dict, List
 
 
 @dataclass(frozen=True)
@@ -12,14 +11,14 @@ class StrictnessProfile:
     """
 
     name: str
-    mtcnn_thresholds: List[float]  # [pnet, rnet, onet] probabilities in (0, 1]
+    mtcnn_thresholds: list[float]  # [pnet, rnet, onet] probabilities in (0, 1]
     min_size: int  # minimum face bounding box (px)
     min_prob: float  # minimum face probability to keep crop
     embed_batch: int  # embedding batch size (lower to save RAM)
 
 
 # Tune once; used everywhere via get_profile()
-STRICTNESS: Dict[str, StrictnessProfile] = {
+STRICTNESS: dict[str, StrictnessProfile] = {
     "strict": StrictnessProfile(
         name="strict",
         mtcnn_thresholds=[0.80, 0.90, 0.95],

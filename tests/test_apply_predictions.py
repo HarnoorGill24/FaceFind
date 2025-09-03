@@ -53,4 +53,3 @@ def test_apply_predictions_label_sanitization_and_placement(tmp_path, monkeypatc
     # low confidence → ignored
     assert not (out_dir / "accept" / "ca_r_ol" / "c.jpg").exists()
     assert not (out_dir / "review" / "ca_r_ol" / "c.jpg").exists()
-

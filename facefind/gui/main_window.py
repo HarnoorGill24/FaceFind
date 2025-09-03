@@ -1,8 +1,8 @@
 """Main application window for the FaceFind GUI."""
+
 # ruff: noqa: E701, E702
 import sys
 from pathlib import Path
-from typing import Optional
 
 from PyQt6.QtGui import QAction, QTextCursor
 from PyQt6.QtWidgets import (
@@ -27,9 +27,11 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
+from facefind.utils import ensure_dir
+
 from .image_grid import ImageGrid
 from .process_worker import ProcessWorker
-from .utils import ensure_dir, link_or_copy
+from .utils import link_or_copy
 
 
 # -------------------------
@@ -47,7 +49,7 @@ class BaseRunnerTab(QWidget):
         self.cancel_btn = QPushButton("Cancel")
         self.cancel_btn.setEnabled(False)
 
-        self.worker: Optional[ProcessWorker] = None
+        self.worker: ProcessWorker | None = None
 
     def _start(self, argv, mps_fallback: bool = False):
         if self.worker:
@@ -153,7 +155,9 @@ class DetectTab(BaseRunnerTab):
             self.input_edit.setText(d)
 
     def _pick_output(self):
-        d = QFileDialog.getExistingDirectory(self, "Select output directory", self.output_edit.text())
+        d = QFileDialog.getExistingDirectory(
+            self, "Select output directory", self.output_edit.text()
+        )
         if d:
             self.output_edit.setText(d)
 
@@ -232,7 +236,9 @@ class VerifyTab(BaseRunnerTab):
             self.crops_edit.setText(d)
 
     def _pick_rejects(self):
-        d = QFileDialog.getExistingDirectory(self, "Select rejects directory", self.reject_edit.text())
+        d = QFileDialog.getExistingDirectory(
+            self, "Select rejects directory", self.reject_edit.text()
+        )
         if d:
             self.reject_edit.setText(d)
 
@@ -327,13 +333,17 @@ class LabelTab(QWidget):
         return box
 
     def _pick_verified(self):
-        d = QFileDialog.getExistingDirectory(self, "Select verified crops directory", self.verified_dir_edit.text())
+        d = QFileDialog.getExistingDirectory(
+            self, "Select verified crops directory", self.verified_dir_edit.text()
+        )
         if d:
             self.verified_dir_edit.setText(d)
             self.refresh()
 
     def _pick_people(self):
-        d = QFileDialog.getExistingDirectory(self, "Select people directory", self.people_dir_edit.text())
+        d = QFileDialog.getExistingDirectory(
+            self, "Select people directory", self.people_dir_edit.text()
+        )
         if d:
             self.people_dir_edit.setText(d)
             self.refresh_people()
@@ -350,7 +360,7 @@ class LabelTab(QWidget):
             if d.is_dir():
                 self.people_list.addItem(QListWidgetItem(d.name))
 
-    def _current_person(self) -> Optional[str]:
+    def _current_person(self) -> str | None:
         it = self.people_list.currentItem()
         return it.text() if it else None
 
@@ -384,7 +394,9 @@ class LabelTab(QWidget):
         if not curr:
             QMessageBox.information(self, "Delete", "Select a person first.")
             return
-        reply = QMessageBox.question(self, "Delete", f"Delete folder '{curr}'? This will remove files.")
+        reply = QMessageBox.question(
+            self, "Delete", f"Delete folder '{curr}'? This will remove files."
+        )
         if reply == QMessageBox.StandardButton.Yes:
             import shutil
 

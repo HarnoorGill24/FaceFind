@@ -40,8 +40,9 @@ def iter_media(root: Path) -> Iterator[Path]:
 
 def read_image_pil_rgb(path: Path) -> Image.Image:
     """Read still image via PIL and auto-fix EXIF orientation."""
-    img = Image.open(path).convert("RGB")
-    return ImageOps.exif_transpose(img)
+    with Image.open(path) as img:
+        img = img.convert("RGB")
+        return ImageOps.exif_transpose(img)
 
 
 def create_mtcnn(profile, device: str) -> MTCNN:

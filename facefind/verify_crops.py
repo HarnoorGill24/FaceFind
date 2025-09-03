@@ -85,29 +85,29 @@ def main() -> None:
         writer.writerow(["crop_path", "prob"])
         for img_path in sorted(crops_dir.glob("*.jpg")):
             try:
-                with Image.open(img_path) as im:
-                    pil = im.convert("RGB")
-                boxes, probs = mtcnn.detect(pil)
-                if boxes is None or probs is None or len(boxes) == 0:
-                    if reject_dir:
-                        shutil.move(str(img_path), reject_dir / img_path.name)
-                    rejected += 1
-                    continue
+                with Image.open(img_path) as pil:
+                    pil = pil.convert("RGB")
+                    boxes, probs = mtcnn.detect(pil)
+                    if boxes is None or probs is None or len(boxes) == 0:
+                        if reject_dir:
+                            shutil.move(str(img_path), reject_dir / img_path.name)
+                        rejected += 1
+                        continue
 
-                ok, var, exposure = passes_quality(
-                    pil, min_var=args.min_var, exposure_tol=args.exposure_tol
-                )
-                if not ok:
-                    logger.debug(
-                        "Rejected %s for quality: var=%.2f exposure=%s",
-                        img_path,
-                        var,
-                        exposure,
+                    ok, var, exposure = passes_quality(
+                        pil, min_var=args.min_var, exposure_tol=args.exposure_tol
                     )
-                    if reject_dir:
-                        shutil.move(str(img_path), reject_dir / img_path.name)
-                    rejected += 1
-                    continue
+                    if not ok:
+                        logger.debug(
+                            "Rejected %s for quality: var=%.2f exposure=%s",
+                            img_path,
+                            var,
+                            exposure,
+                        )
+                        if reject_dir:
+                            shutil.move(str(img_path), reject_dir / img_path.name)
+                        rejected += 1
+                        continue
                 # Keep
                 writer.writerow([str(img_path), f"{max(probs):.4f}"])
                 f.flush()

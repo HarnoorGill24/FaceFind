@@ -27,3 +27,17 @@ click>=8.1.7   # CLI interface
 # Testing
 pytest>=8.2.0
 joblib>=1.3
+
+# Captioning & Tagging
+transformers>=4.39.0
+
+# Object Detection
+ultralytics>=8.0.0
+
+# OCR
+paddleocr>=2.7.0
+pytesseract>=0.3.10
+
+# Similarity / Duplicates
+faiss-cpu>=1.7.4
+imagehash>=4.3.1

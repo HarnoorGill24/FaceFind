@@ -1,3 +1,5 @@
+"""Widget displaying a grid of image thumbnails."""
+
 from pathlib import Path  # For handling file paths
 from typing import List
 

@@ -1,5 +1,6 @@
-import sys
 import logging
+import sys
+
 import facefind.split_clusters as split_clusters
 
 

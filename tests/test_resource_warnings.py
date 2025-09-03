@@ -25,6 +25,7 @@ sys.modules["facefind.quality"] = SimpleNamespace(
 import facefind.main as main
 import facefind.verify_crops as verify_crops
 
+
 def _no_resource_warnings(warns):
     return [w for w in warns if issubclass(w.category, ResourceWarning)]
 

@@ -1,17 +1,5 @@
 #!/usr/bin/env python3
-"""
-FaceFind - apply_predictions.py
-
-Read a predictions CSV (path,label,prob) and:
-- Place high-confidence images into OUT/accept/<label>/...
-- Place mid-confidence images into OUT/review/<label>/...
-- (Optional) Update people_dir/<label>/... for accepted items (hard link by default)
-
-CSV header is flexible:
-- path/file/image
-- label/prediction
-- prob/score/confidence
-"""
+"""Organize images into folders based on prediction CSV labels."""
 
 import argparse
 import csv
@@ -21,10 +9,9 @@ import shutil
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
-from facefind.utils import ensure_dir, sanitize_label
 from facefind.cli_common import add_log_level, add_version, validate_path
-
-from facefind.io_schema import PATH_ALIASES, LABEL_ALIASES, PROB_ALIASES
+from facefind.io_schema import LABEL_ALIASES, PATH_ALIASES, PROB_ALIASES
+from facefind.utils import ensure_dir, sanitize_label
 
 
 def unique_dst(dst: Path) -> Path:

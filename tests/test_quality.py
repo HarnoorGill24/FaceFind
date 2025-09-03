@@ -1,9 +1,8 @@
 from __future__ import annotations
 
 import numpy as np
-from PIL import Image
-
 import pytest
+from PIL import Image
 
 import facefind.quality as quality
 

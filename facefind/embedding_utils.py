@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
-"""
-embedding_utils.py
-Shared utilities for device selection, image loading, and face embeddings.
-Used by: main.py, train_face_classifier.py, predict_face.py
-"""
+"""Helpers for device selection, image loading, and face embeddings."""
 from __future__ import annotations
 
 import functools
 import logging
 import os
 from pathlib import Path
-from typing import Iterable, Iterator, List, Optional, Sequence, TypeVar
+from typing import TYPE_CHECKING, Iterable, Iterator, List, Optional, Sequence, TypeVar
+
+if TYPE_CHECKING:  # pragma: no cover - imports for type hints only
+    import numpy as np
+    import torch
+    from facenet_pytorch import InceptionResnetV1
+    from PIL import Image
 
 
 T = TypeVar("T")

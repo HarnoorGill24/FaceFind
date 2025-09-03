@@ -85,7 +85,8 @@ def main() -> None:
         writer.writerow(["crop_path", "prob"])
         for img_path in sorted(crops_dir.glob("*.jpg")):
             try:
-                pil = Image.open(img_path).convert("RGB")
+                with Image.open(img_path) as im:
+                    pil = im.convert("RGB")
                 boxes, probs = mtcnn.detect(pil)
                 if boxes is None or probs is None or len(boxes) == 0:
                     if reject_dir:

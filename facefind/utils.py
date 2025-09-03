@@ -3,10 +3,10 @@
 This module centralizes small helpers used across multiple scripts:
 
 * :func:`is_image` – quick predicate for image paths.
-* :func:`ensure_dir` – create a directory tree if it doesn't exist.
+* :func:`sanitize_label` – normalize labels for filesystem safety.
 
-The canonical file-extension sets live in :mod:`facefind.file_exts` and are
-imported here for convenience.
+The canonical file-extension set lives in :mod:`utils.common` and is imported
+here for convenience.
 """
 from __future__ import annotations
 
@@ -14,17 +14,12 @@ import os
 import re
 from pathlib import Path
 
-from facefind.file_exts import IMAGE_EXTS
+from utils.common import IMAGE_EXTS
 
 
 def is_image(p: Path) -> bool:
     """Return True if *p* has an image file extension."""
     return p.suffix.lower() in IMAGE_EXTS
-
-
-def ensure_dir(p: Path) -> None:
-    """Ensure directory *p* exists, creating parents if needed."""
-    p.mkdir(parents=True, exist_ok=True)
 
 
 def sanitize_label(label: str, replacement: str | None = "_") -> str:

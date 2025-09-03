@@ -17,7 +17,8 @@ import os
 import shutil
 from pathlib import Path
 
-from facefind.utils import ensure_dir, sanitize_label
+from facefind.utils import sanitize_label
+from utils.common import ensure_dir
 
 IMAGE_COL_CANDIDATES = ("path", "file", "image")
 LABEL_COL_CANDIDATES = ("cluster", "label", "prediction")

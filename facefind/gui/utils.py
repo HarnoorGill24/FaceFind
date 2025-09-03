@@ -2,7 +2,7 @@ import os
 import shutil
 from pathlib import Path
 
-from facefind.utils import ensure_dir
+from utils.common import ensure_dir
 
 
 def unique_path(dst: Path) -> Path:

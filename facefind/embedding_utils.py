@@ -30,6 +30,9 @@ def get_device(preferred: Optional[str] = None) -> str:
     """
     if preferred:
         pref = preferred.lower()
+        allowed = {"cpu", "cuda", "mps"}
+        if pref not in allowed:
+            raise ValueError(f"Unknown device '{preferred}'. Allowed: {sorted(allowed)}")
         if pref == "cuda" and torch.cuda.is_available():
             return "cuda"
         if pref == "mps" and getattr(torch.backends, "mps", None) and torch.backends.mps.is_available():

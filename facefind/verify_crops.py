@@ -37,6 +37,7 @@ def main() -> None:
     parser.add_argument(
         "--device",
         default=None,
+        choices=["cpu", "cuda", "mps"],
         help="torch device: cuda, mps, or cpu (auto if unset)",
     )
     parser.add_argument(

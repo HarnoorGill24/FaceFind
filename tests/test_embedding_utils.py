@@ -30,6 +30,13 @@ def test_get_device_default_cpu(monkeypatch):
     assert embedding_utils.get_device() == "cpu"
 
 
+def test_get_device_invalid():
+    import pytest
+
+    with pytest.raises(ValueError):
+        embedding_utils.get_device("bogus")
+
+
 def test_batched_chunks():
     result = list(embedding_utils.batched(range(5), 2))
     assert result == [[0, 1], [2, 3], [4]]

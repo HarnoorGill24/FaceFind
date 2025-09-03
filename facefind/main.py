@@ -131,6 +131,7 @@ def main() -> None:
     parser.add_argument(
         "--device",
         default=None,
+        choices=["cpu", "cuda", "mps"],
         help="torch device, e.g., cuda, mps, or cpu (auto if not set)",
     )
     parser.add_argument(

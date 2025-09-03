@@ -2,12 +2,11 @@
 
 This module centralizes small helpers used across multiple scripts:
 
-* :data:`IMAGE_EXTS` – set of supported image file extensions.
 * :func:`is_image` – quick predicate for image paths.
 * :func:`ensure_dir` – create a directory tree if it doesn't exist.
 
-Import these helpers instead of redefining them in each script so that
-future tools stay consistent.
+The canonical file-extension sets live in :mod:`facefind.file_exts` and are
+imported here for convenience.
 """
 from __future__ import annotations
 
@@ -15,8 +14,7 @@ import os
 import re
 from pathlib import Path
 
-# Common image file extensions supported by FaceFind
-IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
+from facefind.file_exts import IMAGE_EXTS
 
 
 def is_image(p: Path) -> bool:

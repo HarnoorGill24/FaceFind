@@ -25,15 +25,15 @@ from PIL import Image
 
 from facefind.embedding_utils import embed_images, get_device, load_images
 from facefind.io_schema import PREDICTIONS_SCHEMA, SCHEMA_MAGIC
-from facefind.utils import is_image
+from facefind.file_exts import IMAGE_EXTS
 
 logger = logging.getLogger(__name__)
 
 
 def list_images(root: Path) -> List[Path]:
-    if root.is_file() and is_image(root):
+    if root.is_file() and root.suffix.lower() in IMAGE_EXTS:
         return [root]
-    return [p for p in sorted(root.rglob("*")) if is_image(p)]
+    return [p for p in sorted(root.rglob("*")) if p.suffix.lower() in IMAGE_EXTS]
 
 
 def softmax_row(x: np.ndarray) -> np.ndarray:

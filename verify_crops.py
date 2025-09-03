@@ -17,6 +17,7 @@ from PIL import Image
 
 from config import get_profile
 from embedding_utils import get_device
+from quality import passes_quality
 
 
 def ensure_dir(p: Path) -> None:
@@ -40,6 +41,18 @@ def main() -> None:
         "--device",
         default=None,
         help="torch device: cuda, mps, or cpu (auto if unset)",
+    )
+    parser.add_argument(
+        "--min-var",
+        type=float,
+        default=100.0,
+        help="Variance of Laplacian threshold to accept",
+    )
+    parser.add_argument(
+        "--exposure-tol",
+        type=float,
+        default=0.05,
+        help="Max fraction of under/over-exposed pixels",
     )
     args = parser.parse_args()
 
@@ -78,7 +91,21 @@ def main() -> None:
                 pil = Image.open(img_path).convert("RGB")
                 boxes, probs = mtcnn.detect(pil)
                 if boxes is None or probs is None or len(boxes) == 0:
-                    # Reject
+                    if reject_dir:
+                        shutil.move(str(img_path), reject_dir / img_path.name)
+                    rejected += 1
+                    continue
+
+                ok, var, exposure = passes_quality(
+                    pil, min_var=args.min_var, exposure_tol=args.exposure_tol
+                )
+                if not ok:
+                    logger.debug(
+                        "Rejected %s for quality: var=%.2f exposure=%s",
+                        img_path,
+                        var,
+                        exposure,
+                    )
                     if reject_dir:
                         shutil.move(str(img_path), reject_dir / img_path.name)
                     rejected += 1

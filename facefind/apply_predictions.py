@@ -15,17 +15,17 @@ CSV header is flexible:
 
 import argparse
 import csv
+import logging
 import os
 import shutil
-import logging
 from pathlib import Path
 from typing import Dict, Optional, Tuple
+
+from facefind.utils import ensure_dir, sanitize_label
 
 IMAGE_COLS = ("path", "file", "image")
 LABEL_COLS = ("label", "prediction")
 PROB_COLS = ("prob", "score", "confidence")
-
-from facefind.utils import ensure_dir, sanitize_label
 
 
 def unique_dst(dst: Path) -> Path:
@@ -43,8 +43,7 @@ def unique_dst(dst: Path) -> Path:
         i += 1
 
 
-def place(src: Path, dst_root: Path, label: str, copy: bool) -> Path:
-    safe_label = sanitize_label(label)
+def place(src: Path, dst_root: Path, safe_label: str, copy: bool) -> Path:
     dst_dir = dst_root / safe_label
     ensure_dir(dst_dir)
     dst = unique_dst(dst_dir / src.name)

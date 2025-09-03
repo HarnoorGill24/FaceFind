@@ -21,7 +21,8 @@ import shutil
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
-from facefind.utils import ensure_dir, sanitize_label
+from facefind.utils import sanitize_label
+from utils.common import ensure_dir
 
 IMAGE_COLS = ("path", "file", "image")
 LABEL_COLS = ("label", "prediction")

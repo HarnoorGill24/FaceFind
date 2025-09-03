@@ -8,7 +8,7 @@ sys.modules["torch"] = SimpleNamespace(
 )
 sys.modules["facenet_pytorch"] = SimpleNamespace(MTCNN=object)
 
-import main  # after stubbing
+import facefind.main as main  # after stubbing
 
 
 def test_iter_media_filters_images_videos(tmp_path):

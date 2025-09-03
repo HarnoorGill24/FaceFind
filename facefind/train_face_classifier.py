@@ -28,8 +28,8 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVC
 
-from config import get_profile
-from embedding_utils import embed_images, get_device, load_images
+from facefind.config import get_profile
+from facefind.embedding_utils import embed_images, get_device, load_images
 
 logger = logging.getLogger(__name__)
 

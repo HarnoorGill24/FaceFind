@@ -11,8 +11,8 @@ from typing import Iterator, Tuple
 from facenet_pytorch import MTCNN
 from PIL import Image, ImageOps
 
-from config import get_profile
-from embedding_utils import get_device
+from facefind.config import get_profile
+from facefind.embedding_utils import get_device
 
 # Optional dependency: OpenCV; used only for video paths.
 try:

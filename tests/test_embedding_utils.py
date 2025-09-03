@@ -10,7 +10,7 @@ sys.modules["facenet_pytorch"] = SimpleNamespace(InceptionResnetV1=object)
 
 from PIL import Image
 
-import embedding_utils
+import facefind.embedding_utils as embedding_utils
 
 
 def test_get_device_prefers_cuda(monkeypatch):

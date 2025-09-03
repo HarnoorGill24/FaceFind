@@ -1,6 +1,6 @@
 import pytest
 
-from config import get_profile
+from facefind.config import get_profile
 
 
 @pytest.mark.parametrize(

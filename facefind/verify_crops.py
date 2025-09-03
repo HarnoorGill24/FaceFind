@@ -15,9 +15,9 @@ from pathlib import Path
 from facenet_pytorch import MTCNN
 from PIL import Image
 
-from config import get_profile
-from embedding_utils import get_device
-from quality import passes_quality
+from facefind.config import get_profile
+from facefind.embedding_utils import get_device
+from facefind.quality import passes_quality
 
 
 def ensure_dir(p: Path) -> None:

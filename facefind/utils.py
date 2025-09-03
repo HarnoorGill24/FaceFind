@@ -11,8 +11,9 @@ future tools stay consistent.
 """
 from __future__ import annotations
 
-from pathlib import Path
 import os
+import re
+from pathlib import Path
 
 # Common image file extensions supported by FaceFind
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
@@ -28,11 +29,33 @@ def ensure_dir(p: Path) -> None:
     p.mkdir(parents=True, exist_ok=True)
 
 
-def sanitize_label(label: str) -> str:
-    """Normalize *label* for safe filesystem usage."""
+def sanitize_label(label: str, replacement: str | None = "_") -> str:
+    """Normalize *label* for safe filesystem usage.
+
+    Parameters
+    ----------
+    label:
+        Raw label to clean.
+    replacement:
+        String used to substitute disallowed characters. ``None`` strips
+        those characters instead of replacing them. Defaults to ``"_"``.
+    """
+
     label = (label or "").strip()
     if not label:
         return "unknown"
+
     # Avoid path traversal / separators
-    return label.replace(os.sep, "_")
+    for sep in {os.sep, os.altsep}:
+        if sep:
+            label = label.replace(sep, replacement or "")
+
+    # Optionally clean up any remaining non-alphanumeric characters
+    if replacement is not None:
+        label = re.sub(r"[^\w.-]", replacement, label)
+    else:
+        label = re.sub(r"[^\w.-]", "", label)
+
+    label = label.strip()
+    return label or "unknown"
 

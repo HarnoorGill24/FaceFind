@@ -12,19 +12,18 @@ CSV column detection (first match wins):
 """
 import argparse
 import csv
+import logging
 import os
 import shutil
-import logging
 from pathlib import Path
+
+from facefind.utils import ensure_dir, sanitize_label
 
 IMAGE_COL_CANDIDATES = ("path", "file", "image")
 LABEL_COL_CANDIDATES = ("cluster", "label", "prediction")
 
-from facefind.utils import ensure_dir, sanitize_label
 
-
-def place(dst_root: Path, label: str, src: Path, copy: bool) -> None:
-    safe_label = sanitize_label(label)
+def place(dst_root: Path, safe_label: str, src: Path, copy: bool) -> None:
     dst_dir = dst_root / safe_label
     ensure_dir(dst_dir)
     dst = dst_dir / src.name

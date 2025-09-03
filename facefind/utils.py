@@ -22,7 +22,11 @@ def is_image(p: Path) -> bool:
     return p.suffix.lower() in IMAGE_EXTS
 
 
-def sanitize_label(label: str, replacement: str | None = "_") -> str:
+def sanitize_label(
+    label: str,
+    replacement: str | None = "_",
+    max_length: int = 100,
+) -> str:
     """Normalize *label* for safe filesystem usage.
 
     Parameters
@@ -32,23 +36,39 @@ def sanitize_label(label: str, replacement: str | None = "_") -> str:
     replacement:
         String used to substitute disallowed characters. ``None`` strips
         those characters instead of replacing them. Defaults to ``"_"``.
+    max_length:
+        Maximum length for the sanitized label. Longer inputs are truncated.
+        Set to ``0`` to disable the limit. Defaults to ``100``.
     """
 
     label = (label or "").strip()
     if not label:
         return "unknown"
 
-    # Avoid path traversal / separators
+    # Remove any path traversal components ("..") first
+    label = label.replace("..", "")
+
+    # Avoid path separators entirely
     for sep in {os.sep, os.altsep}:
         if sep:
             label = label.replace(sep, replacement or "")
 
-    # Optionally clean up any remaining non-alphanumeric characters
+    # Permit only alphanumeric characters plus -_
+    pattern = r"[^A-Za-z0-9_-]"
     if replacement is not None:
-        label = re.sub(r"[^\w.-]", replacement, label)
+        label = re.sub(pattern, replacement, label)
     else:
-        label = re.sub(r"[^\w.-]", "", label)
+        label = re.sub(pattern, "", label)
 
     label = label.strip()
+    if replacement:
+        label = label.strip(replacement)
+
+    if not label:
+        return "unknown"
+
+    if max_length:
+        label = label[:max_length]
+
     return label or "unknown"
 

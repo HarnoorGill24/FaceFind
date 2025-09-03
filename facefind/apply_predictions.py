@@ -42,7 +42,13 @@ def unique_dst(dst: Path) -> Path:
         i += 1
 
 
-def place(src: Path, dst_root: Path, safe_label: str, copy: bool) -> Path:
+def place(src: Path, dst_root: Path, label: str, copy: bool) -> Path:
+    """Place *src* into *dst_root* under a directory for *label*.
+
+    The label is sanitized to avoid unsafe filesystem characters.
+    """
+
+    safe_label = sanitize_label(label)
     dst_dir = dst_root / safe_label
     ensure_dir(dst_dir)
     dst = unique_dst(dst_dir / src.name)
@@ -147,15 +153,15 @@ def main():
 
             if prob >= args.accept_threshold:
                 # ACCEPT
-                place(src, accept_root, safe_label, copy=args.copy)
+                place(src, accept_root, label, copy=args.copy)
                 if people_dir:
-                    place(src, people_dir, safe_label, copy=args.copy)
+                    place(src, people_dir, label, copy=args.copy)
                 accepted += 1
                 by_label_accept[safe_label] = by_label_accept.get(safe_label, 0) + 1
 
             elif prob >= args.review_threshold:
                 # REVIEW
-                place(src, review_root, safe_label, copy=args.copy)
+                place(src, review_root, label, copy=args.copy)
                 reviewed += 1
                 by_label_review[safe_label] = by_label_review.get(safe_label, 0) + 1
             else:

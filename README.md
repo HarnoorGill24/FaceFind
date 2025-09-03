@@ -2,7 +2,7 @@
 
 End-to-end local pipeline for **face discovery and labeling** across large photo/video libraries.
 
-**Pipeline:** detect → verify → cluster → train classifier → predict → sort predictions.
+**Pipeline:** detect → verify → cluster → train classifier → predict → apply.
 
 ---
 
@@ -53,15 +53,17 @@ Accepted images land in `outputs/sorted/accept` and lower-confidence ones in `ou
 
 ```
 .
-├── facefind/        # package with console entry points
-├── examples/        # sample_media generator + docs
-├── models/          # trained classifier artifacts (generated)
-├── outputs/         # detection/prediction results (generated)
-├── tests/           # pytest suite
-├── pyproject.toml
-├── requirements.txt
-└── README.md
+├─ facefind/          # library code (no side effects on import)
+├─ tests/             # unit & integration tests
+├─ examples/          # tiny demo inputs or generator
+├─ models/            # (gitignored) trained artifacts
+├─ outputs/           # (gitignored) run outputs
+├─ scripts/           # sanity scripts (optional)
+├─ docs/              # design & usage docs
+└─ pyproject.toml     # console scripts, tool configs
 ```
+
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for pipeline details.
 
 ---
 

@@ -15,6 +15,9 @@ facefind-predict = "facefind.predict_face:main"
 facefind-apply = "facefind.apply_predictions:main"
 facefind-report = "facefind.report:main"
 
+[tool.setuptools.packages.find]
+include = ["facefind*"]
+
 [tool.black]
 line-length = 160
 target-version = ["py311"]

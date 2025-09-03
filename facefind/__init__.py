@@ -1,3 +1,8 @@
 """FaceFind package with shared utilities and CLI entry points."""
 
-__all__ = []
+# Re-export common schema definitions for convenience when importing the
+# package directly (``import facefind``).
+from . import io_schema
+
+__all__ = ["io_schema"]
+

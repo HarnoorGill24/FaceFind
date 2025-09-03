@@ -59,3 +59,6 @@ models/
 .pytest_cache/
 .ruff_cache/
 .mypy_cache/
+
+# Example media (generated)
+examples/sample_media/

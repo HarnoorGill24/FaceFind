@@ -45,11 +45,11 @@ def softmax_row(x: np.ndarray) -> np.ndarray:
         ) from e
 
     m = np.max(x)
-    e = np.exp(x - m)
-    s = e.sum()
+    exp_vals = np.exp(x - m)
+    s = exp_vals.sum()
     if s <= 0.0 or not math.isfinite(s):
         return np.full_like(x, 1.0 / len(x), dtype=np.float64)
-    return e / s
+    return exp_vals / s
 
 
 def main(argv: list[str] | None = None) -> int:

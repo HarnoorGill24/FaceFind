@@ -45,4 +45,3 @@ Strictness profiles and shared thresholds live in
 and resolves it with `config.get_profile`, which raises on unknown names. File
 system paths are validated early with `cli_common.validate_path` to fail fast on
 missing inputs.
-

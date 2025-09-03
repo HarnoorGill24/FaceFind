@@ -25,15 +25,7 @@ IMAGE_COLS = ("path", "file", "image")
 LABEL_COLS = ("label", "prediction")
 PROB_COLS = ("prob", "score", "confidence")
 
-from facefind.utils import ensure_dir
-
-
-def sanitize_label(label: str) -> str:
-    label = (label or "").strip()
-    if not label:
-        return "unknown"
-    # Avoid path traversal / separators
-    return label.replace(os.sep, "_")
+from facefind.utils import ensure_dir, sanitize_label
 
 
 def unique_dst(dst: Path) -> Path:
@@ -148,19 +140,21 @@ def main():
                 missing += 1
                 continue
 
+            safe_label = sanitize_label(label)
+
             if prob >= args.accept_threshold:
                 # ACCEPT
-                place(src, accept_root, label, copy=args.copy)
+                place(src, accept_root, safe_label, copy=args.copy)
                 if people_dir:
-                    place(src, people_dir, label, copy=args.copy)
+                    place(src, people_dir, safe_label, copy=args.copy)
                 accepted += 1
-                by_label_accept[sanitize_label(label)] = by_label_accept.get(sanitize_label(label), 0) + 1
+                by_label_accept[safe_label] = by_label_accept.get(safe_label, 0) + 1
 
             elif prob >= args.review_threshold:
                 # REVIEW
-                place(src, review_root, label, copy=args.copy)
+                place(src, review_root, safe_label, copy=args.copy)
                 reviewed += 1
-                by_label_review[sanitize_label(label)] = by_label_review.get(sanitize_label(label), 0) + 1
+                by_label_review[safe_label] = by_label_review.get(safe_label, 0) + 1
             else:
                 # Below review threshold → ignore (soft reject)
                 rejected += 1

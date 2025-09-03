@@ -20,8 +20,9 @@ from pathlib import Path
 from facefind.utils import sanitize_label
 from utils.common import ensure_dir
 
-IMAGE_COL_CANDIDATES = ("path", "file", "image")
-LABEL_COL_CANDIDATES = ("cluster", "label", "prediction")
+from facefind.io_schema import PATH_ALIASES, LABEL_ALIASES, PROB_ALIASES
+LABEL_CANDIDATES = ("cluster",) + LABEL_ALIASES
+_ = PROB_ALIASES
 
 
 def place(dst_root: Path, safe_label: str, src: Path, copy: bool) -> None:
@@ -67,12 +68,13 @@ def main() -> None:
                     return headers[c]
             return None
 
-        img_col = pick(IMAGE_COL_CANDIDATES)
-        lab_col = pick(LABEL_COL_CANDIDATES)
+        img_col = pick(PATH_ALIASES)
+        lab_col = pick(LABEL_CANDIDATES)
 
         if not img_col or not lab_col:
             raise SystemExit(
-                f"CSV must contain image column in {IMAGE_COL_CANDIDATES} " f"and label column in {LABEL_COL_CANDIDATES}. Found: {reader.fieldnames}"
+                f"CSV must contain image column in {PATH_ALIASES} "
+                f"and label column in {LABEL_CANDIDATES}. Found: {reader.fieldnames}"
             )
 
         rows = list(reader)

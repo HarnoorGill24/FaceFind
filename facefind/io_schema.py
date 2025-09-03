@@ -11,3 +11,12 @@ SCHEMA_MAGIC = "# FaceFindPredictions,v1"
 PATH_ALIASES = ("path", "file", "image")
 LABEL_ALIASES = ("label", "prediction", "pred_label")
 PROB_ALIASES = ("prob", "score", "confidence")
+
+
+__all__ = [
+    "PREDICTIONS_SCHEMA",
+    "SCHEMA_MAGIC",
+    "PATH_ALIASES",
+    "LABEL_ALIASES",
+    "PROB_ALIASES",
+]

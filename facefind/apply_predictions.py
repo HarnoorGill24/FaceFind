@@ -24,9 +24,7 @@ from typing import Dict, Optional, Tuple
 from facefind.utils import sanitize_label
 from utils.common import ensure_dir
 
-IMAGE_COLS = ("path", "file", "image")
-LABEL_COLS = ("label", "prediction")
-PROB_COLS = ("prob", "score", "confidence")
+from facefind.io_schema import PATH_ALIASES, LABEL_ALIASES, PROB_ALIASES
 
 
 def unique_dst(dst: Path) -> Path:
@@ -68,7 +66,7 @@ def detect_headers(headers) -> Tuple[Optional[str], Optional[str], Optional[str]
                 return low[c]
         return None
 
-    return pick(IMAGE_COLS), pick(LABEL_COLS), pick(PROB_COLS)
+    return pick(PATH_ALIASES), pick(LABEL_ALIASES), pick(PROB_ALIASES)
 
 
 logger = logging.getLogger(__name__)
@@ -117,7 +115,10 @@ def main():
         reader = csv.DictReader(f)
         img_col, lab_col, prob_col = detect_headers(reader.fieldnames)
         if not img_col or not lab_col or not prob_col:
-            raise SystemExit(f"CSV must contain columns: path({IMAGE_COLS}), label({LABEL_COLS}), prob({PROB_COLS}). " f"Found: {reader.fieldnames}")
+            raise SystemExit(
+                f"CSV must contain columns: path({PATH_ALIASES}), label({LABEL_ALIASES}), prob({PROB_ALIASES}). "
+                f"Found: {reader.fieldnames}"
+            )
 
         for row in reader:
             raw_path = (row.get(img_col) or "").strip()

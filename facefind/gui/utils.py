@@ -1,4 +1,4 @@
-import os
+import os  # Needed for creating hard links
 import shutil
 from pathlib import Path
 

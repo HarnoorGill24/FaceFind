@@ -3,8 +3,9 @@
 
 Images come from https://thispersondoesnotexist.com and do **not** depict real people.
 """
-from pathlib import Path
+
 import urllib.request
+from pathlib import Path
 
 
 def main() -> None:
@@ -12,7 +13,7 @@ def main() -> None:
     out_dir.mkdir(parents=True, exist_ok=True)
     for i in range(2):
         url = "https://thispersondoesnotexist.com/"
-        dest = out_dir / f"face{i+1}.jpg"
+        dest = out_dir / f"face{i + 1}.jpg"
         with urllib.request.urlopen(url) as resp:
             dest.write_bytes(resp.read())
         print(f"Wrote {dest}")

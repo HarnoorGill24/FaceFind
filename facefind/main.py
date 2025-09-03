@@ -1,13 +1,15 @@
 #!/usr/bin/env python3
 """CLI entry point for detecting faces and saving crops."""
+
 from __future__ import annotations
 
 import argparse
 import csv
 import logging
 import time
+from collections.abc import Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING, Iterator, Tuple
+from typing import TYPE_CHECKING
 
 from PIL import Image, ImageOps
 
@@ -48,6 +50,7 @@ def iter_media(root: Path) -> Iterator[Path]:
     for p in sorted(root.rglob("*")):
         if p.is_file() and (is_image(p) or is_video(p)):
             yield p
+
 
 def read_image_pil_rgb(path: Path) -> Image.Image:
     """Read still image via PIL and auto-fix EXIF orientation."""
@@ -98,7 +101,7 @@ def frame_iterator(video_path: Path, step: int):
         cap.release()
 
 
-def bgr_to_pil_rgb(bgr: "np.ndarray") -> Image.Image:
+def bgr_to_pil_rgb(bgr: np.ndarray) -> Image.Image:
     """Convert OpenCV BGR frame to PIL RGB."""
     if cv2 is None or np is None:
         raise RuntimeError("OpenCV + NumPy required for BGR->RGB conversion.")
@@ -108,7 +111,7 @@ def bgr_to_pil_rgb(bgr: "np.ndarray") -> Image.Image:
 
 def crop_and_save(
     pil_img: Image.Image,
-    box: Tuple[int, int, int, int],
+    box: tuple[int, int, int, int],
     out_dir: Path,
     stem: str,
     face_id: int,
@@ -127,9 +130,11 @@ def crop_and_save(
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="facefind-detect", description="Scan media, detect faces, save crops + manifest"
-        )
+    )
     add_version(parser)
-    parser.add_argument("--input", required=True, help="Path to media folder (images and/or videos)")
+    parser.add_argument(
+        "--input", required=True, help="Path to media folder (images and/or videos)"
+    )
     parser.add_argument("--output", default="outputs", help="Output root (default: outputs)")
     parser.add_argument(
         "--video-step",
@@ -208,7 +213,7 @@ def main(argv: list[str] | None = None) -> int:
                                 logger.info("No faces: %s", rel)
                             continue
                         saved = 0
-                        for i, (box, prob) in enumerate(zip(boxes, probs)):
+                        for i, (box, prob) in enumerate(zip(boxes, probs, strict=False)):
                             if prob is None or prob < prof.min_prob:
                                 continue
                             try:
@@ -224,7 +229,10 @@ def main(argv: list[str] | None = None) -> int:
 
                     elif is_video(media_path):
                         if cv2 is None:
-                            raise RuntimeError("OpenCV (cv2) required for video processing. pip install opencv-python")
+                            raise RuntimeError(
+                                "OpenCV (cv2) required for video processing. "
+                                "pip install opencv-python"
+                            )
                         saved_from_video = 0
                         for frame_idx, frame in frame_iterator(media_path, args.video_step):
                             pil = bgr_to_pil_rgb(frame)
@@ -233,19 +241,25 @@ def main(argv: list[str] | None = None) -> int:
                                 if args.log_no_face:
                                     logger.info("No faces: %s#frame=%d", rel, frame_idx)
                                 continue
-                            for i, (box, prob) in enumerate(zip(boxes, probs)):
+                            for i, (box, prob) in enumerate(zip(boxes, probs, strict=False)):
                                 if prob is None or prob < prof.min_prob:
                                     continue
                                 try:
-                                    out_path = crop_and_save(pil, box, crops_dir, f"{stem}_f{frame_idx}", i)
-                                    writer.writerow([str(out_path), f"{rel}#frame={frame_idx}", f"{prob:.4f}"])
+                                    out_path = crop_and_save(
+                                        pil, box, crops_dir, f"{stem}_f{frame_idx}", i
+                                    )
+                                    writer.writerow(
+                                        [str(out_path), f"{rel}#frame={frame_idx}", f"{prob:.4f}"]
+                                    )
                                     f.flush()
                                     face_total += 1
                                     saved_from_video += 1
                                     if saved_from_video >= args.max_per_media:
                                         break
                                 except Exception as e:  # pragma: no cover
-                                    logger.warning("video crop save failed for %s: %s", media_path, e)
+                                    logger.warning(
+                                        "video crop save failed for %s: %s", media_path, e
+                                    )
                             if saved_from_video >= args.max_per_media:
                                 break
                     else:

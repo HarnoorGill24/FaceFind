@@ -6,13 +6,13 @@ import sys
 def test_import_image_analysis_without_optional_dependencies(monkeypatch):
     missing = {"cv2", "numpy", "torch", "PIL", "facenet_pytorch"}
     for name in list(sys.modules):
-        if name.split('.')[0] in missing:
+        if name.split(".")[0] in missing:
             monkeypatch.delitem(sys.modules, name, raising=False)
 
     real_import = builtins.__import__
 
     def fake_import(name, *args, **kwargs):
-        if name.split('.')[0] in missing:
+        if name.split(".")[0] in missing:
             raise ModuleNotFoundError(name)
         return real_import(name, *args, **kwargs)
 

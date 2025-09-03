@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Split clustering or prediction CSV into per-label folders."""
+
 import argparse
 import csv
 import logging
@@ -40,7 +41,9 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--output", required=True, help="Destination directory for per-label folders")
     ap.add_argument("--copy", action="store_true", help="Copy files instead of hard-linking")
     ap.add_argument("--rel-root", default=None, help="Optional root to resolve relative CSV paths")
-    ap.add_argument("--dry-run", action="store_true", help="Show actions without creating links/copies")
+    ap.add_argument(
+        "--dry-run", action="store_true", help="Show actions without creating links/copies"
+    )
     add_log_level(ap)
     args = ap.parse_args(argv)
 

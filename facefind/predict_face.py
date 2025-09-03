@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Predict face labels for images and write a results CSV."""
+
 from __future__ import annotations
 
 import argparse
@@ -8,7 +9,6 @@ import json
 import logging
 import math
 from pathlib import Path
-from typing import List, Optional
 
 import joblib
 import numpy as np
@@ -28,7 +28,7 @@ from facefind.utils import IMAGE_EXTS
 logger = logging.getLogger(__name__)
 
 
-def list_images(root: Path) -> List[Path]:
+def list_images(root: Path) -> list[Path]:
     if root.is_file() and root.suffix.lower() in IMAGE_EXTS:
         return [root]
     return [p for p in sorted(root.rglob("*")) if p.suffix.lower() in IMAGE_EXTS]
@@ -45,10 +45,14 @@ def softmax_row(x: np.ndarray) -> np.ndarray:
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="facefind-predict", description="Predict face labels for images/crops")
+    ap = argparse.ArgumentParser(
+        prog="facefind-predict", description="Predict face labels for images/crops"
+    )
     add_version(ap)
     ap.add_argument("--input", required=True, help="Image file or directory of images to classify")
-    ap.add_argument("--models-dir", required=True, help="Directory with face_classifier.joblib + labelmap.json")
+    ap.add_argument(
+        "--models-dir", required=True, help="Directory with face_classifier.joblib + labelmap.json"
+    )
     ap.add_argument("--output", required=True, help="Output CSV path")
     add_device(ap)
     add_config_profile(ap)
@@ -82,7 +86,7 @@ def main(argv: list[str] | None = None) -> int:
 
     # Load images → embeddings
     logger.info("Loading %d images…", len(paths))
-    pil_list: List[Optional[Image.Image]] = load_images(paths)
+    pil_list: list[Image.Image | None] = load_images(paths)
     X = embed_images(pil_list, device=device)  # embedding_utils handles MPS fallback env
 
     # Load classifier
@@ -114,7 +118,9 @@ def main(argv: list[str] | None = None) -> int:
         w = csv.writer(f)
         # Schema comment then canonical header
         w.writerow([SCHEMA_MAGIC])
-        w.writerow(list(PREDICTIONS_SCHEMA) + ["pred_index", "raw_score"])  # extras are helpful for debugging
+        w.writerow(
+            list(PREDICTIONS_SCHEMA) + ["pred_index", "raw_score"]
+        )  # extras are helpful for debugging
 
         for i, p in enumerate(paths):
             idx = int(indices[i])

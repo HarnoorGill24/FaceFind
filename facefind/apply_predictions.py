@@ -6,8 +6,8 @@ import csv
 import logging
 import os
 import shutil
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Dict, Optional, Tuple
 
 from facefind.cli_common import add_log_level, add_version, validate_path
 from facefind.io_schema import LABEL_ALIASES, PATH_ALIASES, PROB_ALIASES
@@ -50,7 +50,7 @@ def place(src: Path, dst_root: Path, label: str, copy: bool) -> Path:
     return dst
 
 
-def detect_headers(headers) -> Tuple[Optional[str], Optional[str], Optional[str]]:
+def detect_headers(headers: Sequence[str] | None) -> tuple[str | None, str | None, str | None]:
     low = {h.lower(): h for h in headers or []}
 
     def pick(cands):
@@ -66,20 +66,31 @@ logger = logging.getLogger(__name__)
 
 
 def main(argv: list[str] | None = None) -> int:
-    ap = argparse.ArgumentParser(prog="facefind-apply", description="Apply predictions to organize images by confidence.")
+    ap = argparse.ArgumentParser(
+        prog="facefind-apply", description="Apply predictions to organize images by confidence."
+    )
     add_version(ap)
-    ap.add_argument("--input", required=True, help="CSV with columns path,label,prob (header flexible)")
+    ap.add_argument(
+        "--input", required=True, help="CSV with columns path,label,prob (header flexible)"
+    )
     ap.add_argument(
         "--people-dir",
         default=None,
-        help="If set, accepted items also link/copy to this labeled people tree (people_by_cluster)",
+        help=(
+            "If set, accepted items also link/copy to this labeled people tree (people_by_cluster)"
+        ),
     )
     ap.add_argument(
         "--output",
         default="outputs/autosort",
         help="Where to place accept/review results (default: outputs/autosort)",
     )
-    ap.add_argument("--accept-threshold", type=float, default=0.80, help="Confidence >= this goes to ACCEPT (default: 0.80)")
+    ap.add_argument(
+        "--accept-threshold",
+        type=float,
+        default=0.80,
+        help="Confidence >= this goes to ACCEPT (default: 0.80)",
+    )
     ap.add_argument(
         "--review-threshold",
         type=float,
@@ -87,7 +98,9 @@ def main(argv: list[str] | None = None) -> int:
         help="Confidence >= this and < accept-threshold goes to REVIEW (default: 0.50)",
     )
     ap.add_argument("--copy", action="store_true", help="Copy files instead of creating hard links")
-    ap.add_argument("--rel-root", default=None, help="Resolve relative CSV paths against this root (optional)")
+    ap.add_argument(
+        "--rel-root", default=None, help="Resolve relative CSV paths against this root (optional)"
+    )
     ap.add_argument("--dry-run", action="store_true", help="Run without placing files")
     add_log_level(ap)
     args = ap.parse_args(argv)
@@ -119,15 +132,16 @@ def main(argv: list[str] | None = None) -> int:
     reviewed = 0
     rejected = 0
     missing = 0
-    by_label_accept: Dict[str, int] = {}
-    by_label_review: Dict[str, int] = {}
+    by_label_accept: dict[str, int] = {}
+    by_label_review: dict[str, int] = {}
 
     with csv_path.open(newline="", encoding="utf-8") as f:
         reader = csv.DictReader(f)
         img_col, lab_col, prob_col = detect_headers(reader.fieldnames)
         if not img_col or not lab_col or not prob_col:
             raise SystemExit(
-                f"CSV must contain columns: path({PATH_ALIASES}), label({LABEL_ALIASES}), prob({PROB_ALIASES}). "
+                "CSV must contain columns: "
+                f"path({PATH_ALIASES}), label({LABEL_ALIASES}), prob({PROB_ALIASES}). "
                 f"Found: {reader.fieldnames}"
             )
 

@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Train a simple face classifier from labeled image folders."""
+
 import argparse
 import json
 import logging
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple
 
 import joblib
 import numpy as np
@@ -29,7 +29,7 @@ from facefind.utils import IMAGE_EXTS
 logger = logging.getLogger(__name__)
 
 
-def list_images_with_labels(root: Path) -> Tuple[List[Path], List[int], Dict[int, str]]:
+def list_images_with_labels(root: Path) -> tuple[list[Path], list[int], dict[int, str]]:
     """
     Expects structure:
       root/
@@ -37,11 +37,11 @@ def list_images_with_labels(root: Path) -> Tuple[List[Path], List[int], Dict[int
         person_b/ ...
     Returns: (paths, y_ints, inv_labelmap[int->name])
     """
-    paths: List[Path] = []
-    labels: List[int] = []
+    paths: list[Path] = []
+    labels: list[int] = []
     classes = sorted([d for d in root.iterdir() if d.is_dir()])
-    name_to_int: Dict[str, int] = {d.name: i for i, d in enumerate(classes)}
-    inv_map: Dict[int, str] = {i: name for name, i in name_to_int.items()}
+    name_to_int: dict[str, int] = {d.name: i for i, d in enumerate(classes)}
+    inv_map: dict[int, str] = {i: name for name, i in name_to_int.items()}
 
     for cls_dir in classes:
         cls_idx = name_to_int[cls_dir.name]
@@ -52,8 +52,8 @@ def list_images_with_labels(root: Path) -> Tuple[List[Path], List[int], Dict[int
     return paths, labels, inv_map
 
 
-def compute_class_centroids(X: np.ndarray, y: List[int]) -> Dict[int, List[float]]:
-    centroids: Dict[int, List[float]] = {}
+def compute_class_centroids(X: np.ndarray, y: list[int]) -> dict[int, list[float]]:
+    centroids: dict[int, list[float]] = {}
     y_arr = np.asarray(y)
     for cls in np.unique(y_arr):
         m = X[y_arr == cls].mean(axis=0)
@@ -99,10 +99,12 @@ def main(argv: list[str] | None = None) -> int:
 
     logger.info("Found %d images across %d classes.", len(paths), len(set(y)))
     logger.info("Loading images...")
-    imgs: List[Optional[Image.Image]] = load_images(paths)
+    imgs: list[Image.Image | None] = load_images(paths)
 
     # Filter out failed image loads
-    valid_pairs = [(p, im, lab) for p, im, lab in zip(paths, imgs, y) if im is not None]
+    valid_pairs = [
+        (p, im, lab) for p, im, lab in zip(paths, imgs, y, strict=False) if im is not None
+    ]
     if len(valid_pairs) < len(paths):
         logger.warning("Dropped %d unreadable images.", len(paths) - len(valid_pairs))
     if not valid_pairs:
@@ -137,12 +139,22 @@ def main(argv: list[str] | None = None) -> int:
     if min_class < 2:
         logger.warning("Some class has only 1 sample; skipping CV and defaulting to lin_svm.")
         best_name = "lin_svm"
-        best_clf = Pipeline([("scaler", StandardScaler(with_mean=True)), ("clf", LinearSVC(class_weight="balanced", max_iter=10000))])
+        best_clf = Pipeline(
+            [
+                ("scaler", StandardScaler(with_mean=True)),
+                ("clf", LinearSVC(class_weight="balanced", max_iter=10000)),
+            ]
+        )
     else:
         cv = StratifiedKFold(n_splits=min(5, min_class), shuffle=True, random_state=42)
         models = {
             f"knn{k}": KNeighborsClassifier(n_neighbors=k, metric="euclidean", n_jobs=-1),
-            "lin_svm": Pipeline([("scaler", StandardScaler(with_mean=True)), ("clf", LinearSVC(class_weight="balanced", max_iter=10000))]),
+            "lin_svm": Pipeline(
+                [
+                    ("scaler", StandardScaler(with_mean=True)),
+                    ("clf", LinearSVC(class_weight="balanced", max_iter=10000)),
+                ]
+            ),
         }
 
         for name, clf in models.items():
@@ -153,7 +165,7 @@ def main(argv: list[str] | None = None) -> int:
             except Exception as e:
                 logger.warning("CV failed for %s: %s", name, e)
 
-        best_name = max(scores, key=scores.get) if scores else "lin_svm"
+        best_name = max(scores, key=lambda k: scores[k]) if scores else "lin_svm"
         best_clf = models[best_name]
 
     # Fit best model on full data

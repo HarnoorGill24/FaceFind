@@ -1,7 +1,6 @@
 """Widget displaying a grid of image thumbnails."""
 
 from pathlib import Path  # For handling file paths
-from typing import List
 
 from PyQt6.QtCore import QSize, Qt
 from PyQt6.QtGui import QIcon, QPixmap
@@ -33,9 +32,18 @@ class ImageGrid(QWidget):
                 item.setText(p.name)
                 pix = QPixmap(str(p))
                 if not pix.isNull():
-                    item.setIcon(QIcon(pix.scaled(128, 128, Qt.AspectRatioMode.KeepAspectRatio, Qt.TransformationMode.SmoothTransformation)))
+                    item.setIcon(
+                        QIcon(
+                            pix.scaled(
+                                128,
+                                128,
+                                Qt.AspectRatioMode.KeepAspectRatio,
+                                Qt.TransformationMode.SmoothTransformation,
+                            )
+                        )
+                    )
                 item.setData(Qt.ItemDataRole.UserRole, str(p))
                 self.list.addItem(item)
 
-    def selected_paths(self) -> List[Path]:
+    def selected_paths(self) -> list[Path]:
         return [Path(i.data(Qt.ItemDataRole.UserRole)) for i in self.list.selectedItems()]

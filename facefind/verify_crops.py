@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Re-run face detection on saved crops to filter out false positives."""
+
 from __future__ import annotations
 
 import argparse

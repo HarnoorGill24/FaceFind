@@ -1,7 +1,5 @@
 """Qt worker object to manage subprocess execution."""
 
-from typing import Dict, List, Optional
-
 from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, pyqtSignal
 
 
@@ -11,7 +9,7 @@ class ProcessWorker(QObject):
     finished = pyqtSignal(int)
     error = pyqtSignal(str)
 
-    def __init__(self, repo_root, env: Optional[Dict[str, str]] = None):
+    def __init__(self, repo_root, env: dict[str, str] | None = None):
         super().__init__()
         self.proc = QProcess(self)
         self.proc.setWorkingDirectory(str(repo_root))
@@ -26,7 +24,7 @@ class ProcessWorker(QObject):
         self.proc.finished.connect(lambda code, _status: self.finished.emit(int(code)))
         self.proc.errorOccurred.connect(lambda _e: self.error.emit("Process error"))
 
-    def run(self, args: List[str]):
+    def run(self, args: list[str]):
         if not args:
             self.error.emit("Empty command")
             return

@@ -20,11 +20,12 @@ from pathlib import Path
 IMAGE_COL_CANDIDATES = ("path", "file", "image")
 LABEL_COL_CANDIDATES = ("cluster", "label", "prediction")
 
-from facefind.utils import ensure_dir
+from facefind.utils import ensure_dir, sanitize_label
 
 
 def place(dst_root: Path, label: str, src: Path, copy: bool) -> None:
-    dst_dir = dst_root / (label or "unknown")
+    safe_label = sanitize_label(label)
+    dst_dir = dst_root / safe_label
     ensure_dir(dst_dir)
     dst = dst_dir / src.name
     try:
@@ -92,7 +93,8 @@ def main() -> None:
             skipped += 1
             continue
 
-        place(out_dir, label, p, copy=args.copy)
+        safe_label = sanitize_label(label)
+        place(out_dir, safe_label, p, copy=args.copy)
         placed += 1
 
     logger.info("Placed: %d, Skipped: %d", placed, skipped)

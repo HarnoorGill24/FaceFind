@@ -12,6 +12,7 @@ future tools stay consistent.
 from __future__ import annotations
 
 from pathlib import Path
+import os
 
 # Common image file extensions supported by FaceFind
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
@@ -25,3 +26,13 @@ def is_image(p: Path) -> bool:
 def ensure_dir(p: Path) -> None:
     """Ensure directory *p* exists, creating parents if needed."""
     p.mkdir(parents=True, exist_ok=True)
+
+
+def sanitize_label(label: str) -> str:
+    """Normalize *label* for safe filesystem usage."""
+    label = (label or "").strip()
+    if not label:
+        return "unknown"
+    # Avoid path traversal / separators
+    return label.replace(os.sep, "_")
+

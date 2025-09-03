@@ -1,4 +1,4 @@
-from pathlib import Path
+from pathlib import Path  # For handling file paths
 from typing import List
 
 from PyQt6.QtCore import QSize, Qt

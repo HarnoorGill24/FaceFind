@@ -25,15 +25,9 @@ from PIL import Image
 
 from facefind.embedding_utils import embed_images, get_device, load_images
 from facefind.io_schema import PREDICTIONS_SCHEMA, SCHEMA_MAGIC
+from facefind.utils import is_image
 
 logger = logging.getLogger(__name__)
-
-
-IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
-
-
-def is_image(p: Path) -> bool:
-    return p.is_file() and p.suffix.lower() in IMAGE_EXTS
 
 
 def list_images(root: Path) -> List[Path]:

@@ -18,10 +18,7 @@ from PIL import Image
 from facefind.config import get_profile
 from facefind.embedding_utils import get_device
 from facefind.quality import passes_quality
-
-
-def ensure_dir(p: Path) -> None:
-    p.mkdir(parents=True, exist_ok=True)
+from facefind.utils import ensure_dir
 
 
 logger = logging.getLogger(__name__)

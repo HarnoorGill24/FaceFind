@@ -30,10 +30,9 @@ from sklearn.svm import LinearSVC
 
 from facefind.config import get_profile
 from facefind.embedding_utils import embed_images, get_device, load_images
+from facefind.utils import IMAGE_EXTS
 
 logger = logging.getLogger(__name__)
-
-IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
 
 
 def list_images_with_labels(root: Path) -> Tuple[List[Path], List[int], Dict[int, str]]:

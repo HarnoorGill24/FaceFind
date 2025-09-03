@@ -22,7 +22,7 @@ from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import mean
 
-from utils.common import IMAGE_EXTS
+from facefind.utils import IMAGE_EXTS
 
 
 def count_images_in_dir(p: Path) -> int:

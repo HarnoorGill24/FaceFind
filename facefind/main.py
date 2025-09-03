@@ -14,8 +14,7 @@ from PIL import Image, ImageOps
 from facefind.config import get_profile
 from facefind.embedding_utils import get_device
 from facefind.file_exts import VIDEO_EXTS
-from facefind.utils import is_image
-from utils.common import ensure_dir
+from facefind.utils import ensure_dir, is_image
 
 # Optional dependency: OpenCV; used only for video paths.
 try:

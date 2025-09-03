@@ -2,9 +2,7 @@ import os
 import shutil
 from pathlib import Path
 
-
-def ensure_dir(p: Path):
-    Path(p).mkdir(parents=True, exist_ok=True)
+from facefind.utils import ensure_dir
 
 
 def unique_path(dst: Path) -> Path:

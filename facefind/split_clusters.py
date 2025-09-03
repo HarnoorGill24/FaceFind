@@ -20,9 +20,7 @@ from pathlib import Path
 IMAGE_COL_CANDIDATES = ("path", "file", "image")
 LABEL_COL_CANDIDATES = ("cluster", "label", "prediction")
 
-
-def ensure_dir(p: Path) -> None:
-    p.mkdir(parents=True, exist_ok=True)
+from facefind.utils import ensure_dir
 
 
 def place(dst_root: Path, label: str, src: Path, copy: bool) -> None:

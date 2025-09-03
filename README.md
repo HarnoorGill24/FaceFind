@@ -108,6 +108,7 @@ pytest
 
 ### Repo Layout
 - `facefind/`: package with CLI entry points and shared modules.
+  - `utils.py`: small reusable helpers like `ensure_dir` and `IMAGE_EXTS`.
 - `models/`: trained classifier artifacts.
 - `outputs/`: crops, manifests, clusters, predictions, etc.
 - `tests/`: small `pytest` suite.

@@ -5,12 +5,13 @@ import pytest
 
 import facefind.main as main
 from facefind.config import get_profile
+from facefind.utils import is_image
 
 
 def test_is_image_and_is_video_case_insensitive(tmp_path):
-    assert main.is_image(Path("a.JPG"))
-    assert main.is_image(Path("b.png"))
-    assert not main.is_image(Path("c.txt"))
+    assert is_image(Path("a.JPG"))
+    assert is_image(Path("b.png"))
+    assert not is_image(Path("c.txt"))
     assert main.is_video(Path("d.MP4"))
     assert main.is_video(Path("e.mov"))
     assert not main.is_video(Path("f.doc"))

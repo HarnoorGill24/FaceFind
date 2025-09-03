@@ -13,6 +13,7 @@ from PIL import Image, ImageOps
 
 from facefind.config import get_profile
 from facefind.embedding_utils import get_device
+from facefind.utils import IMAGE_EXTS, ensure_dir, is_image
 
 # Optional dependency: OpenCV; used only for video paths.
 try:
@@ -26,13 +27,7 @@ except Exception:  # pragma: no cover
 logger = logging.getLogger(__name__)
 
 
-IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}
 VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".m4v"}
-
-
-def is_image(p: Path) -> bool:
-    return p.suffix.lower() in IMAGE_EXTS
-
 
 def is_video(p: Path) -> bool:
     return p.suffix.lower() in VIDEO_EXTS
@@ -43,11 +38,6 @@ def iter_media(root: Path) -> Iterator[Path]:
     for p in sorted(root.rglob("*")):
         if p.is_file() and (is_image(p) or is_video(p)):
             yield p
-
-
-def ensure_dir(p: Path) -> None:
-    p.mkdir(parents=True, exist_ok=True)
-
 
 def read_image_pil_rgb(path: Path) -> Image.Image:
     """Read still image via PIL and auto-fix EXIF orientation."""

@@ -25,9 +25,7 @@ IMAGE_COLS = ("path", "file", "image")
 LABEL_COLS = ("label", "prediction")
 PROB_COLS = ("prob", "score", "confidence")
 
-
-def ensure_dir(p: Path) -> None:
-    p.mkdir(parents=True, exist_ok=True)
+from facefind.utils import ensure_dir
 
 
 def sanitize_label(label: str) -> str:

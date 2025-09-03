@@ -62,8 +62,14 @@ def main(argv: list[str] | None = None) -> int:
         logger.info("Detectors on MPS can fail due to adaptive pooling. Using CPU for MTCNN.")
         mtcnn_device = "cpu"
 
-    from facenet_pytorch import MTCNN  # local import to avoid side effects on import
-    from PIL import Image  # noqa: WPS433 - imported lazily
+    try:
+        from facenet_pytorch import MTCNN  # local import to avoid side effects on import
+        from PIL import Image  # imported lazily
+    except Exception as e:
+        raise SystemExit(
+            "facenet-pytorch and Pillow are required. "
+            "Install with `pip install -r requirements.txt`."
+        ) from e
 
     mtcnn = MTCNN(
         keep_all=True,

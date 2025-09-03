@@ -1,14 +1,14 @@
 #!/usr/bin/env python3
 """Train a simple face classifier from labeled image folders."""
 
+from __future__ import annotations
+
 import argparse
 import json
 import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
-import joblib
-import numpy as np
-from PIL import Image
 from sklearn.model_selection import StratifiedKFold, cross_val_score
 from sklearn.neighbors import KNeighborsClassifier
 from sklearn.pipeline import Pipeline
@@ -25,6 +25,10 @@ from facefind.cli_common import (
 from facefind.config import get_profile
 from facefind.embedding_utils import embed_images, get_device, load_images
 from facefind.utils import IMAGE_EXTS
+
+if TYPE_CHECKING:  # pragma: no cover
+    import numpy as np
+    from PIL import Image
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +57,13 @@ def list_images_with_labels(root: Path) -> tuple[list[Path], list[int], dict[int
 
 
 def compute_class_centroids(X: np.ndarray, y: list[int]) -> dict[int, list[float]]:
+    try:
+        import numpy as np
+    except Exception as e:  # pragma: no cover - import failure
+        raise RuntimeError(
+            "NumPy is required. Install with `pip install -r requirements.txt`."
+        ) from e
+
     centroids: dict[int, list[float]] = {}
     y_arr = np.asarray(y)
     for cls in np.unique(y_arr):
@@ -86,6 +97,16 @@ def main(argv: list[str] | None = None) -> int:
     prof = get_profile(args.config_profile)
     device = get_device(args.device)
     logger.info("Using device: %s | embed_batch=%s", device, prof.embed_batch)
+
+    try:
+        import joblib
+        import numpy as np
+        from PIL import Image  # noqa: F401
+    except Exception as e:  # pragma: no cover - import failure
+        raise SystemExit(
+            "NumPy, joblib, and Pillow are required. "
+            "Install with `pip install -r requirements.txt`."
+        ) from e
 
     data_dir = validate_path(Path(args.input).expanduser().resolve(), kind="input")
     if not data_dir.is_dir():

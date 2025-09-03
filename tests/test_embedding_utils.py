@@ -1,5 +1,6 @@
-from types import SimpleNamespace
 import sys
+from types import SimpleNamespace
+
 from PIL import Image
 
 # Stub heavy dependencies before importing embedding_utils

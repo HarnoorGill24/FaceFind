@@ -1,15 +1,5 @@
 #!/usr/bin/env python3
-"""
-FaceFind - split_clusters.py
-
-Split a clustering or prediction CSV into per-label folders.
-Creates hard links by default (use --copy to actually copy files).
-
-CSV column detection (first match wins):
-- path/file/image
-- cluster/label/prediction
-- confidence (optional; ignored here)
-"""
+"""Split clustering or prediction CSV into per-label folders."""
 import argparse
 import csv
 import logging
@@ -17,10 +7,10 @@ import os
 import shutil
 from pathlib import Path
 
-from facefind.utils import ensure_dir, sanitize_label
 from facefind.cli_common import add_log_level, add_version, validate_path
+from facefind.io_schema import LABEL_ALIASES, PATH_ALIASES, PROB_ALIASES
+from facefind.utils import ensure_dir, sanitize_label
 
-from facefind.io_schema import PATH_ALIASES, LABEL_ALIASES, PROB_ALIASES
 LABEL_CANDIDATES = ("cluster",) + LABEL_ALIASES
 _ = PROB_ALIASES
 

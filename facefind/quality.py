@@ -1,3 +1,4 @@
+"""Image quality heuristics for filtering face crops."""
 from __future__ import annotations
 
 import numpy as np

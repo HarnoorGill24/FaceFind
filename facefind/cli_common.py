@@ -1,3 +1,4 @@
+"""Shared argparse helpers for FaceFind CLI tools."""
 from __future__ import annotations
 
 import argparse

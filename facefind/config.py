@@ -1,4 +1,5 @@
-# config.py
+"""Configuration profiles for FaceFind detection and embedding."""
+
 from dataclasses import dataclass
 from typing import Dict, List
 

@@ -1,3 +1,5 @@
+"""Qt worker object to manage subprocess execution."""
+
 from typing import Dict, List, Optional
 
 from PyQt6.QtCore import QObject, QProcess, QProcessEnvironment, pyqtSignal

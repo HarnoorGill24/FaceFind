@@ -1,21 +1,12 @@
 #!/usr/bin/env python3
-"""
-predict_face.py
-
-Given a directory (or single image) of crops/images, load embeddings and a
-trained classifier, and write a CSV of predictions.
-
-The CSV is written with a commented schema line and canonical headers:
-    # FaceFindPredictions,v1
-    path,label,prob,pred_index,raw_score
-"""
+"""Predict face labels for images and write a results CSV."""
 from __future__ import annotations
 
 import argparse
 import csv
 import json
-import math
 import logging
+import math
 from pathlib import Path
 from typing import List, Optional
 
@@ -23,9 +14,6 @@ import joblib
 import numpy as np
 from PIL import Image
 
-from facefind.embedding_utils import embed_images, get_device, load_images
-from facefind.io_schema import PREDICTIONS_SCHEMA, SCHEMA_MAGIC
-from facefind.utils import IMAGE_EXTS
 from facefind.cli_common import (
     add_config_profile,
     add_device,
@@ -33,6 +21,9 @@ from facefind.cli_common import (
     add_version,
     validate_path,
 )
+from facefind.embedding_utils import embed_images, get_device, load_images
+from facefind.io_schema import PREDICTIONS_SCHEMA, SCHEMA_MAGIC
+from facefind.utils import IMAGE_EXTS
 
 logger = logging.getLogger(__name__)
 

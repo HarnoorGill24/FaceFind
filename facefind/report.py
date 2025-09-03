@@ -1,19 +1,5 @@
 #!/usr/bin/env python3
-"""
-FaceFind - report.py
-Generate a simple JSON + console summary of your dataset and pipeline status.
-
-It looks for the following (if present):
-- outputs/crops_manifest.csv          -> total crops detected
-- outputs/crops/pending               -> current crops awaiting verify
-- outputs/crops/rejects               -> rejected crops count
-- outputs/crops_verified.csv          -> kept crops after verification
-- outputs/predictions.csv             -> per-label counts and confidence stats
-- models/labelmap.json                -> known classes
-
-Usage:
-  python report.py --outputs outputs --models models --predictions outputs/predictions.csv --save-json outputs/report.json
-"""
+"""Generate a JSON and console summary of dataset and pipeline status."""
 import argparse
 import csv
 import json

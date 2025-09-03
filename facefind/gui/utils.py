@@ -1,8 +1,8 @@
+"""Utilities for file operations within the GUI."""
+
 import os  # Needed for creating hard links
 import shutil
 from pathlib import Path
-
-from facefind.utils import ensure_dir
 
 
 def unique_path(dst: Path) -> Path:

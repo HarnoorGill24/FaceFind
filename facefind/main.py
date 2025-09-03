@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""CLI entry point for detecting faces and saving crops."""
 from __future__ import annotations
 
 import argparse
@@ -6,14 +7,10 @@ import csv
 import logging
 import time
 from pathlib import Path
-from typing import Iterator, Tuple, TYPE_CHECKING
+from typing import TYPE_CHECKING, Iterator, Tuple
 
 from PIL import Image, ImageOps
 
-from facefind.config import get_profile
-from facefind.embedding_utils import get_device
-from facefind.file_exts import VIDEO_EXTS
-from facefind.utils import ensure_dir, is_image
 from facefind.cli_common import (
     add_config_profile,
     add_device,
@@ -21,6 +18,10 @@ from facefind.cli_common import (
     add_version,
     validate_path,
 )
+from facefind.config import get_profile
+from facefind.embedding_utils import get_device
+from facefind.file_exts import VIDEO_EXTS
+from facefind.utils import ensure_dir, is_image
 
 # Optional dependency: OpenCV; used only for video paths.
 try:
@@ -32,7 +33,7 @@ except Exception:  # pragma: no cover
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from facenet_pytorch import MTCNN
+    pass
 
 
 logger = logging.getLogger(__name__)

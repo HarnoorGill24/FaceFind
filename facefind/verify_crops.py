@@ -1,9 +1,5 @@
 #!/usr/bin/env python3
-"""
-FaceFind - verify_crops.py
-Re-run face detection on saved crops to filter out false positives.
-Writes a filtered manifest and optionally moves rejects.
-"""
+"""Re-run face detection on saved crops to filter out false positives."""
 from __future__ import annotations
 
 import argparse
@@ -15,10 +11,6 @@ from pathlib import Path
 from facenet_pytorch import MTCNN
 from PIL import Image
 
-from facefind.config import get_profile
-from facefind.embedding_utils import get_device
-from facefind.quality import passes_quality
-from facefind.utils import ensure_dir
 from facefind.cli_common import (
     add_config_profile,
     add_device,
@@ -26,7 +18,10 @@ from facefind.cli_common import (
     add_version,
     validate_path,
 )
-
+from facefind.config import get_profile
+from facefind.embedding_utils import get_device
+from facefind.quality import passes_quality
+from facefind.utils import ensure_dir
 
 logger = logging.getLogger(__name__)
 

@@ -1,4 +1,4 @@
-# gui/main_window.py
+"""Main application window for the FaceFind GUI."""
 # ruff: noqa: E701, E702
 import sys
 from pathlib import Path

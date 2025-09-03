@@ -1,23 +1,14 @@
 #!/usr/bin/env python3
-"""
-image_analysis.py
-
-High-level utilities for image quality scoring, captioning/tagging,
-object detection, OCR, and duplicate search.
-
-The functions lazily import heavy dependencies so that the module can be
-imported even if optional packages (e.g. transformers, ultralytics) are
-not installed.  Each routine attempts to use the best available torch
-backend, including Apple's MPS backend on Apple Silicon, via
-``embedding_utils.get_device``.
-"""
+"""High-level image analysis helpers for quality, captions, and search."""
 from __future__ import annotations
 
-from typing import Dict, Iterable, List, Optional, Sequence, Tuple
-
+from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Tuple
 
 from facefind.embedding_utils import get_device
 
+if TYPE_CHECKING:  # pragma: no cover - import only for typing
+    import numpy as np
+    from PIL import Image
 
 # ---------------------------------------------------------------------------
 # Technical quality scoring
@@ -43,11 +34,6 @@ def exposure_metrics(img: np.ndarray) -> Dict[str, float]:
         raise ImportError(
             "exposure_metrics requires 'cv2'. Install opencv-python."
         ) from e
-    try:
-        import numpy as np
-    except ModuleNotFoundError as e:
-        raise ImportError("exposure_metrics requires 'numpy'.") from e
-
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     hist = cv2.calcHist([gray], [0], None, [256], [0, 256]).ravel()
     total = hist.sum() or 1.0
@@ -118,10 +104,6 @@ def zero_shot_tags(
         import torch
     except ModuleNotFoundError as e:
         raise ImportError("zero_shot_tags requires torch") from e
-    try:
-        import numpy as np
-    except ModuleNotFoundError as e:
-        raise ImportError("zero_shot_tags requires numpy") from e
     from transformers import CLIPModel, CLIPProcessor  # lazy
 
     dev = get_device(device)

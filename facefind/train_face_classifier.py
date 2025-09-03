@@ -1,23 +1,10 @@
 #!/usr/bin/env python3
-"""
-FaceFind - train_face_classifier.py
-Create embeddings from a labeled folder tree and train a simple classifier.
-Select the best model via cross-validation and save:
-- models/face_classifier.joblib
-- models/labelmap.json
-- models/centroids.json  (keys as class names)
-- models/embeddings.npy  (nice-to-have, for reuse/debugging)
-- models/train_paths.json
-- models/train_labels.json
-
-Respects --config-profile from config.py to set embedding batch size.
-"""
+"""Train a simple face classifier from labeled image folders."""
 import argparse
 import json
+import logging
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple
-
-import logging
 
 import joblib
 import numpy as np
@@ -28,9 +15,6 @@ from sklearn.pipeline import Pipeline
 from sklearn.preprocessing import StandardScaler
 from sklearn.svm import LinearSVC
 
-from facefind.config import get_profile
-from facefind.embedding_utils import embed_images, get_device, load_images
-from facefind.utils import IMAGE_EXTS
 from facefind.cli_common import (
     add_config_profile,
     add_device,
@@ -38,6 +22,9 @@ from facefind.cli_common import (
     add_version,
     validate_path,
 )
+from facefind.config import get_profile
+from facefind.embedding_utils import embed_images, get_device, load_images
+from facefind.utils import IMAGE_EXTS
 
 logger = logging.getLogger(__name__)
 

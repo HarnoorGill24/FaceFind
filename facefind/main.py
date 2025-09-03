@@ -24,6 +24,10 @@ from facefind.embedding_utils import get_device
 from facefind.file_exts import VIDEO_EXTS
 from facefind.utils import ensure_dir, is_image
 
+if TYPE_CHECKING:  # pragma: no cover
+    import numpy
+    from PIL import Image
+
 _CV2_SENTINEL = object()
 _NP_SENTINEL = object()
 _PIL_SENTINEL = object()
@@ -31,11 +35,6 @@ cv2 = _CV2_SENTINEL  # type: ignore[assignment]
 np = _NP_SENTINEL  # type: ignore[assignment]
 Image = _PIL_SENTINEL  # type: ignore[assignment]
 ImageOps = _PIL_SENTINEL  # type: ignore[assignment]
-
-
-if TYPE_CHECKING:  # pragma: no cover
-    import numpy as np
-    from PIL import Image
 
 
 logger = logging.getLogger(__name__)
@@ -150,7 +149,7 @@ def frame_iterator(video_path: Path, step: int):
         cap.release()
 
 
-def bgr_to_pil_rgb(bgr: np.ndarray) -> Image.Image:
+def bgr_to_pil_rgb(bgr: numpy.ndarray) -> Image.Image:
     """Convert OpenCV BGR frame to PIL RGB."""
     cv2, np = _require_cv2()
     Image, _ = _require_pillow()
@@ -215,12 +214,7 @@ def main(argv: list[str] | None = None) -> int:
 
     level = getattr(logging, args.log_level, logging.INFO)
     logging.basicConfig(level=level, force=True)
-
     prof = get_profile(args.config_profile)
-
-    # Shared device resolver
-    device = get_device(args.device)
-    logger.info("Using device: %s", device)
 
     input_dir = validate_path(Path(args.input).expanduser().resolve(), kind="input")
     if not input_dir.is_dir():
@@ -230,6 +224,10 @@ def main(argv: list[str] | None = None) -> int:
     ensure_dir(crops_dir)
     manifests_dir = out_root
     ensure_dir(manifests_dir)
+
+    # Shared device resolver
+    device = get_device(args.device)
+    logger.info("Using device: %s", device)
 
     # Initialize MTCNN with profile thresholds
     mtcnn = create_mtcnn(prof, device)

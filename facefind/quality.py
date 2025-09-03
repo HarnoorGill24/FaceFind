@@ -55,9 +55,7 @@ def _require_numpy():
     return np
 
 
-def variance_of_laplacian(
-    pil: Image.Image, box: tuple[int, int, int, int] | None = None
-) -> float:
+def variance_of_laplacian(pil: Image.Image, box: tuple[int, int, int, int] | None = None) -> float:
     """Return variance of Laplacian; crop to *box* if provided."""
     cv2 = _require_cv2()
     np = _require_numpy()

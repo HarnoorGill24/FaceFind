@@ -9,9 +9,6 @@ import logging
 import shutil
 from pathlib import Path
 
-from facenet_pytorch import MTCNN
-from PIL import Image
-
 from facefind.cli_common import (
     add_config_profile,
     add_device,
@@ -64,6 +61,9 @@ def main(argv: list[str] | None = None) -> int:
     if device == "mps":
         logger.info("Detectors on MPS can fail due to adaptive pooling. Using CPU for MTCNN.")
         mtcnn_device = "cpu"
+
+    from facenet_pytorch import MTCNN  # local import to avoid side effects on import
+    from PIL import Image  # noqa: WPS433 - imported lazily
 
     mtcnn = MTCNN(
         keep_all=True,

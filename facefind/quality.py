@@ -2,27 +2,38 @@
 
 from __future__ import annotations
 
+import importlib
+
 import numpy as np
 from PIL import Image
 
-try:  # pragma: no cover - exercised in tests
-    import cv2
-except ImportError:  # pragma: no cover - optional dependency
-    cv2 = None
+_CV2_SENTINEL = object()
+cv2 = _CV2_SENTINEL  # type: ignore[assignment]
 
 
-def _require_cv2() -> None:
-    """Raise an informative error if OpenCV is missing."""
-    if cv2 is None:
+def _require_cv2():
+    """Return the imported ``cv2`` module or raise a helpful error."""
+    global cv2
+    if cv2 is _CV2_SENTINEL:
+        try:  # pragma: no cover - exercised in tests
+            cv2 = importlib.import_module("cv2")
+        except ModuleNotFoundError as e:  # pragma: no cover - optional dependency
+            cv2 = None
+            raise ImportError(
+                "OpenCV is required for image quality assessment. "
+                "Install the 'opencv-python' package to enable this feature."
+            ) from e
+    if cv2 is None:  # pragma: no cover - when patched to None in tests
         raise ImportError(
             "OpenCV is required for image quality assessment. "
             "Install the 'opencv-python' package to enable this feature."
         )
+    return cv2
 
 
 def variance_of_laplacian(pil: Image.Image, box: tuple[int, int, int, int] | None = None) -> float:
     """Return variance of Laplacian; crop to *box* if provided."""
-    _require_cv2()
+    cv2 = _require_cv2()
     if box is not None:
         pil = pil.crop(box)
     arr = np.array(pil)
@@ -40,7 +51,7 @@ def check_exposure(
     tol: float = 0.05,
 ) -> str:
     """Classify exposure as 'under', 'over', or 'good'."""
-    _require_cv2()
+    cv2 = _require_cv2()
     arr = np.array(pil)
     if arr.ndim == 2:
         gray = arr
@@ -63,7 +74,6 @@ def passes_quality(
     exposure_tol: float = 0.05,
 ) -> tuple[bool, float, str]:
     """Return (passes, var, exposure) for convenience."""
-    _require_cv2()
     var = variance_of_laplacian(pil)
     exposure = check_exposure(pil, tol=exposure_tol)
     return var >= min_var and exposure == "good", var, exposure

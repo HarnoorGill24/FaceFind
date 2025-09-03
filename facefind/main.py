@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import importlib
 import logging
 import time
 from collections.abc import Iterator
@@ -25,17 +26,14 @@ from facefind.embedding_utils import get_device
 from facefind.file_exts import VIDEO_EXTS
 from facefind.utils import ensure_dir, is_image
 
-# Optional dependency: OpenCV; used only for video paths.
-try:
-    import cv2  # type: ignore[import-not-found]
-    import numpy as np
-except Exception:  # pragma: no cover
-    cv2 = None  # type: ignore[assignment]
-    np = None  # type: ignore[assignment]
+_CV2_SENTINEL = object()
+_NP_SENTINEL = object()
+cv2 = _CV2_SENTINEL  # type: ignore[assignment]
+np = _NP_SENTINEL  # type: ignore[assignment]
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    pass
+    import numpy as np
 
 
 logger = logging.getLogger(__name__)
@@ -56,7 +54,27 @@ def read_image_pil_rgb(path: Path) -> Image.Image:
     """Read still image via PIL and auto-fix EXIF orientation."""
     with Image.open(path) as img:
         img = img.convert("RGB")
-        return ImageOps.exif_transpose(img)
+    return ImageOps.exif_transpose(img)
+
+
+def _require_cv2():
+    """Import cv2 and numpy lazily, raising if unavailable."""
+    global cv2, np
+    if cv2 is _CV2_SENTINEL or np is _NP_SENTINEL:
+        try:  # pragma: no cover - import for optional dependency
+            cv2 = importlib.import_module("cv2")
+            np = importlib.import_module("numpy")
+        except Exception as e:  # pragma: no cover - import failure
+            cv2 = None
+            np = None
+            raise RuntimeError(
+                "OpenCV (cv2) and NumPy are required for video processing."
+            ) from e
+    if cv2 is None or np is None:  # pragma: no cover - when patched to None in tests
+        raise RuntimeError(
+            "OpenCV (cv2) and NumPy are required for video processing."
+        )
+    return cv2, np
 
 
 def create_mtcnn(profile, device: str):
@@ -82,8 +100,7 @@ def create_mtcnn(profile, device: str):
 
 def frame_iterator(video_path: Path, step: int):
     """Yield (frame_index, frame_bgr) every `step` frames."""
-    if cv2 is None:
-        raise RuntimeError("OpenCV (cv2) required for video processing. pip install opencv-python")
+    cv2, _ = _require_cv2()
     cap = cv2.VideoCapture(str(video_path))
     try:
         if not cap.isOpened():
@@ -103,8 +120,7 @@ def frame_iterator(video_path: Path, step: int):
 
 def bgr_to_pil_rgb(bgr: np.ndarray) -> Image.Image:
     """Convert OpenCV BGR frame to PIL RGB."""
-    if cv2 is None or np is None:
-        raise RuntimeError("OpenCV + NumPy required for BGR->RGB conversion.")
+    cv2, np = _require_cv2()
     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
     return Image.fromarray(rgb)
 

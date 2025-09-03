@@ -69,18 +69,20 @@ def frame_iterator(video_path: Path, step: int):
     if cv2 is None:
         raise RuntimeError("OpenCV (cv2) required for video processing. pip install opencv-python")
     cap = cv2.VideoCapture(str(video_path))
-    if not cap.isOpened():
-        logger.warning("Could not open video: %s", video_path)
-        return
-    idx = 0
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            break
-        if idx % step == 0:
-            yield idx, frame
-        idx += 1
-    cap.release()
+    try:
+        if not cap.isOpened():
+            logger.warning("Could not open video: %s", video_path)
+            return
+        idx = 0
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            if idx % step == 0:
+                yield idx, frame
+            idx += 1
+    finally:
+        cap.release()
 
 
 def bgr_to_pil_rgb(bgr: "np.ndarray") -> Image.Image:

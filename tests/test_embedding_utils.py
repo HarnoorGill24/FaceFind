@@ -1,8 +1,5 @@
 import sys
-from pathlib import Path
 from types import SimpleNamespace
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 # Stub heavy dependencies before importing embedding_utils
 sys.modules["torch"] = SimpleNamespace(
@@ -36,6 +33,13 @@ def test_get_device_default_cpu(monkeypatch):
 def test_batched_chunks():
     result = list(embedding_utils.batched(range(5), 2))
     assert result == [[0, 1], [2, 3], [4]]
+
+
+def test_batched_invalid_size():
+    import pytest
+
+    with pytest.raises(ValueError):
+        list(embedding_utils.batched(range(3), 0))
 
 
 def test_load_images(tmp_path):

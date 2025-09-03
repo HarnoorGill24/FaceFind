@@ -55,6 +55,25 @@ def read_image_pil_rgb(path: Path) -> Image.Image:
     return ImageOps.exif_transpose(img)
 
 
+def create_mtcnn(profile, device: str) -> MTCNN:
+    """Factory to construct an MTCNN detector honoring profile and device quirks.
+
+    On Apple Silicon, MPS can crash inside adaptive pooling; for stability we
+    force the detector to run on CPU while allowing embeddings to use MPS.
+    """
+    mtcnn_device = device
+    if device == "mps":
+        logger.info("Detectors on MPS can fail due to adaptive pooling. Using CPU for MTCNN.")
+        mtcnn_device = "cpu"
+
+    return MTCNN(
+        keep_all=True,
+        thresholds=profile.mtcnn_thresholds,
+        min_face_size=profile.min_size,
+        device=mtcnn_device,
+    )
+
+
 def frame_iterator(video_path: Path, step: int):
     """Yield (frame_index, frame_bgr) every `step` frames."""
     if cv2 is None:
@@ -154,18 +173,7 @@ def main() -> None:
     ensure_dir(manifests_dir)
 
     # Initialize MTCNN with profile thresholds
-    # Workaround: MTCNN on MPS can crash due to AdaptivePool bug. Use CPU for detection if MPS is selected.
-    mtcnn_device = device
-    if device == "mps":
-        logger.info("Detectors on MPS can fail due to adaptive pooling. Using CPU for MTCNN.")
-        mtcnn_device = "cpu"
-
-    mtcnn = MTCNN(
-        keep_all=True,
-        thresholds=prof.mtcnn_thresholds,
-        min_face_size=prof.min_size,
-        device=mtcnn_device,
-    )
+    mtcnn = create_mtcnn(prof, device)
 
     t0 = time.time()
     media_count = 0

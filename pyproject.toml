@@ -13,3 +13,7 @@ ignore = ["E203"]         # black-compatible
 [tool.ruff.lint.per-file-ignores]
 "gui/main_window.py" = ["E701", "E702"]
 "tests/*.py" = ["E402"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

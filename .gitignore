@@ -36,6 +36,8 @@ models/*.pkl
 .coverage
 htmlcov/
 .cache/
+.# local pytest cache (typo-safe)
+.pytest_cache/
 pytest_cache/
 
 # --- Jupyter / notebooks ---

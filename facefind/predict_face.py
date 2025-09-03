@@ -9,10 +9,7 @@ import json
 import logging
 import math
 from pathlib import Path
-
-import joblib
-import numpy as np
-from PIL import Image
+from typing import TYPE_CHECKING
 
 from facefind.cli_common import (
     add_config_profile,
@@ -27,6 +24,10 @@ from facefind.utils import IMAGE_EXTS
 
 logger = logging.getLogger(__name__)
 
+if TYPE_CHECKING:  # pragma: no cover
+    import numpy as np
+    from PIL import Image
+
 
 def list_images(root: Path) -> list[Path]:
     if root.is_file() and root.suffix.lower() in IMAGE_EXTS:
@@ -36,6 +37,13 @@ def list_images(root: Path) -> list[Path]:
 
 def softmax_row(x: np.ndarray) -> np.ndarray:
     """Numerically stable softmax for a single row vector."""
+    try:
+        import numpy as np
+    except Exception as e:  # pragma: no cover - import failure
+        raise RuntimeError(
+            "NumPy is required. Install with `pip install -r requirements.txt`."
+        ) from e
+
     m = np.max(x)
     e = np.exp(x - m)
     s = e.sum()
@@ -61,6 +69,16 @@ def main(argv: list[str] | None = None) -> int:
 
     level = getattr(logging, args.log_level, logging.INFO)
     logging.basicConfig(level=level, force=True)
+
+    try:
+        import joblib
+        import numpy as np
+        from PIL import Image  # noqa: F401
+    except Exception as e:  # pragma: no cover - import failure
+        raise SystemExit(
+            "NumPy, joblib, and Pillow are required. "
+            "Install with `pip install -r requirements.txt`."
+        ) from e
 
     img_root = validate_path(Path(args.input).expanduser().resolve(), kind="input")
     model_dir = validate_path(Path(args.models_dir).expanduser().resolve(), kind="models-dir")

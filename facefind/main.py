@@ -12,8 +12,6 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PIL import Image, ImageOps
-
 from facefind.cli_common import (
     add_config_profile,
     add_device,
@@ -28,12 +26,16 @@ from facefind.utils import ensure_dir, is_image
 
 _CV2_SENTINEL = object()
 _NP_SENTINEL = object()
+_PIL_SENTINEL = object()
 cv2 = _CV2_SENTINEL  # type: ignore[assignment]
 np = _NP_SENTINEL  # type: ignore[assignment]
+Image = _PIL_SENTINEL  # type: ignore[assignment]
+ImageOps = _PIL_SENTINEL  # type: ignore[assignment]
 
 
 if TYPE_CHECKING:  # pragma: no cover
     import numpy as np
+    from PIL import Image
 
 
 logger = logging.getLogger(__name__)
@@ -52,6 +54,7 @@ def iter_media(root: Path) -> Iterator[Path]:
 
 def read_image_pil_rgb(path: Path) -> Image.Image:
     """Read still image via PIL and auto-fix EXIF orientation."""
+    Image, ImageOps = _require_pillow()
     with Image.open(path) as img:
         img = img.convert("RGB")
     return ImageOps.exif_transpose(img)
@@ -67,10 +70,37 @@ def _require_cv2():
         except Exception as e:  # pragma: no cover - import failure
             cv2 = None
             np = None
-            raise RuntimeError("OpenCV (cv2) and NumPy are required for video processing.") from e
+            raise RuntimeError(
+                "OpenCV (cv2) and NumPy are required for video processing. "
+                "Install with `pip install -r requirements.txt`."
+            ) from e
     if cv2 is None or np is None:  # pragma: no cover - when patched to None in tests
-        raise RuntimeError("OpenCV (cv2) and NumPy are required for video processing.")
+        raise RuntimeError(
+            "OpenCV (cv2) and NumPy are required for video processing. "
+            "Install with `pip install -r requirements.txt`."
+        )
     return cv2, np
+
+
+def _require_pillow():
+    """Import Pillow lazily, raising if unavailable."""
+    global Image, ImageOps
+    if Image is _PIL_SENTINEL or ImageOps is _PIL_SENTINEL:
+        try:  # pragma: no cover - import for optional dependency
+            from PIL import Image as PILImage
+            from PIL import ImageOps as PILImageOps
+
+            Image = PILImage
+            ImageOps = PILImageOps
+        except Exception as e:  # pragma: no cover - import failure
+            Image = None
+            ImageOps = None
+            raise RuntimeError(
+                "Pillow is required. Install with `pip install -r requirements.txt`."
+            ) from e
+    if Image is None or ImageOps is None:  # pragma: no cover - when patched to None in tests
+        raise RuntimeError("Pillow is required. Install with `pip install -r requirements.txt`.")
+    return Image, ImageOps
 
 
 def create_mtcnn(profile, device: str):
@@ -117,6 +147,7 @@ def frame_iterator(video_path: Path, step: int):
 def bgr_to_pil_rgb(bgr: np.ndarray) -> Image.Image:
     """Convert OpenCV BGR frame to PIL RGB."""
     cv2, np = _require_cv2()
+    Image, _ = _require_pillow()
     rgb = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGB)
     return Image.fromarray(rgb)
 
@@ -240,11 +271,6 @@ def main(argv: list[str] | None = None) -> int:
                                 logger.warning("crop save failed for %s: %s", media_path, e)
 
                     elif is_video(media_path):
-                        if cv2 is None:
-                            raise RuntimeError(
-                                "OpenCV (cv2) required for video processing. "
-                                "pip install opencv-python"
-                            )
                         saved_from_video = 0
                         for frame_idx, frame in frame_iterator(media_path, args.video_step):
                             pil = bgr_to_pil_rgb(frame)

@@ -67,13 +67,9 @@ def _require_cv2():
         except Exception as e:  # pragma: no cover - import failure
             cv2 = None
             np = None
-            raise RuntimeError(
-                "OpenCV (cv2) and NumPy are required for video processing."
-            ) from e
+            raise RuntimeError("OpenCV (cv2) and NumPy are required for video processing.") from e
     if cv2 is None or np is None:  # pragma: no cover - when patched to None in tests
-        raise RuntimeError(
-            "OpenCV (cv2) and NumPy are required for video processing."
-        )
+        raise RuntimeError("OpenCV (cv2) and NumPy are required for video processing.")
     return cv2, np
 
 

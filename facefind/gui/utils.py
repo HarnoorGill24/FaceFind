@@ -2,7 +2,7 @@ import os  # Needed for creating hard links
 import shutil
 from pathlib import Path
 
-from utils.common import ensure_dir
+from facefind.utils import ensure_dir
 
 
 def unique_path(dst: Path) -> Path:

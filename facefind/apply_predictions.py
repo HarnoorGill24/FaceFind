@@ -21,8 +21,7 @@ import shutil
 from pathlib import Path
 from typing import Dict, Optional, Tuple
 
-from facefind.utils import sanitize_label
-from utils.common import ensure_dir
+from facefind.utils import ensure_dir, sanitize_label
 
 from facefind.io_schema import PATH_ALIASES, LABEL_ALIASES, PROB_ALIASES
 

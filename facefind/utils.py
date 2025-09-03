@@ -4,9 +4,10 @@ This module centralizes small helpers used across multiple scripts:
 
 * :func:`is_image` – quick predicate for image paths.
 * :func:`sanitize_label` – normalize labels for filesystem safety.
+* :func:`ensure_dir` – create directories as needed.
 
-The canonical file-extension set lives in :mod:`utils.common` and is imported
-here for convenience.
+The canonical file-extension set and :func:`ensure_dir` live in
+:mod:`utils.common` and are imported here for convenience.
 """
 from __future__ import annotations
 
@@ -14,7 +15,9 @@ import os
 import re
 from pathlib import Path
 
-from utils.common import IMAGE_EXTS
+from utils.common import IMAGE_EXTS, ensure_dir
+
+__all__ = ["IMAGE_EXTS", "ensure_dir", "is_image", "sanitize_label"]
 
 
 def is_image(p: Path) -> bool:

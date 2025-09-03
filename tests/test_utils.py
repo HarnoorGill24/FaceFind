@@ -1,6 +1,7 @@
 import os
+from pathlib import Path
 
-from facefind.utils import sanitize_label
+from facefind.utils import IMAGE_EXTS, ensure_dir, is_image, sanitize_label
 
 
 def test_sanitize_label_replaces_separators():
@@ -41,3 +42,15 @@ def test_sanitize_label_special_chars_and_dots():
 def test_sanitize_label_max_length():
     long_label = "a" * 150
     assert len(sanitize_label(long_label)) == 100
+
+
+def test_ensure_dir_creates_directory(tmp_path):
+    target = tmp_path / "nested/dir"
+    ensure_dir(target)
+    assert target.is_dir()
+
+
+def test_is_image_respects_exts():
+    for ext in IMAGE_EXTS:
+        assert is_image(Path(f"file{ext}"))
+    assert not is_image(Path("file.txt"))

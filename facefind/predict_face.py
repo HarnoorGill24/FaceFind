@@ -25,7 +25,7 @@ from PIL import Image
 
 from facefind.embedding_utils import embed_images, get_device, load_images
 from facefind.io_schema import PREDICTIONS_SCHEMA, SCHEMA_MAGIC
-from utils.common import IMAGE_EXTS
+from facefind.utils import IMAGE_EXTS
 
 logger = logging.getLogger(__name__)
 

@@ -1,6 +1,6 @@
 """Shared file extension sets for FaceFind."""
 
-from utils.common import IMAGE_EXTS
+from facefind.utils import IMAGE_EXTS
 
 # Common video file extensions (optional)
 VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".m4v"}

@@ -17,16 +17,18 @@ Usage:
 import argparse
 import csv
 import json
+import logging
 from collections import Counter, defaultdict
 from pathlib import Path
 from statistics import mean
-import logging
+
+from facefind.file_exts import IMAGE_EXTS
 
 
 def count_images_in_dir(p: Path) -> int:
     if not p.exists():
         return 0
-    return sum(1 for x in p.rglob("*") if x.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp", ".bmp", ".tif", ".tiff"})
+    return sum(1 for x in p.rglob("*") if x.suffix.lower() in IMAGE_EXTS)
 
 
 def read_csv_rows(path: Path):

@@ -13,7 +13,8 @@ from PIL import Image, ImageOps
 
 from facefind.config import get_profile
 from facefind.embedding_utils import get_device
-from facefind.utils import IMAGE_EXTS, ensure_dir, is_image
+from facefind.file_exts import VIDEO_EXTS
+from facefind.utils import ensure_dir, is_image
 
 # Optional dependency: OpenCV; used only for video paths.
 try:
@@ -26,8 +27,6 @@ except Exception:  # pragma: no cover
 
 logger = logging.getLogger(__name__)
 
-
-VIDEO_EXTS = {".mp4", ".mov", ".avi", ".mkv", ".m4v"}
 
 def is_video(p: Path) -> bool:
     return p.suffix.lower() in VIDEO_EXTS

@@ -12,10 +12,6 @@ import os
 from pathlib import Path
 from typing import Iterable, Iterator, List, Optional, Sequence, TypeVar
 
-import numpy as np
-import torch
-from facenet_pytorch import InceptionResnetV1
-from PIL import Image
 
 T = TypeVar("T")
 
@@ -28,6 +24,11 @@ def get_device(preferred: Optional[str] = None) -> str:
     Decide which torch device to use.
     Honors a user-preferred value if available; otherwise auto-selects.
     """
+    try:
+        import torch
+    except ModuleNotFoundError as e:
+        raise ImportError("torch is required for get_device()") from e
+
     if preferred:
         pref = preferred.lower()
         allowed = {"cpu", "cuda", "mps"}
@@ -54,6 +55,11 @@ def _get_embed_model(device: str) -> InceptionResnetV1:
     """
     Load Facenet InceptionResnetV1 once per device and cache it.
     """
+    try:
+        from facenet_pytorch import InceptionResnetV1
+    except ModuleNotFoundError as e:
+        raise ImportError("facenet_pytorch is required for embeddings") from e
+
     model = InceptionResnetV1(pretrained="vggface2").eval().to(device)
     return model
 
@@ -66,6 +72,11 @@ def load_images(paths: Sequence[Path]) -> List[Optional[Image.Image]]:
     Load images as PIL (RGB). On failure returns None for that slot.
     Preserves one-to-one alignment with `paths`.
     """
+    try:
+        from PIL import Image
+    except ModuleNotFoundError as e:
+        raise ImportError("Pillow is required for load_images()") from e
+
     out: List[Optional[Image.Image]] = []
     for p in paths:
         try:
@@ -85,6 +96,19 @@ def _preprocess(im: Image.Image) -> torch.Tensor:
     Facenet expects 160x160 RGB, float in [-1,1].
     Returns CHW float32 tensor.
     """
+    try:
+        from PIL import Image
+    except ModuleNotFoundError as e:
+        raise ImportError("Pillow is required for preprocessing") from e
+    try:
+        import numpy as np
+    except ModuleNotFoundError as e:
+        raise ImportError("NumPy is required for preprocessing") from e
+    try:
+        import torch
+    except ModuleNotFoundError as e:
+        raise ImportError("torch is required for preprocessing") from e
+
     im2 = im.resize((160, 160), Image.BILINEAR)
     # Make a writable copy to avoid the PyTorch "non-writable NumPy array" warning.
     arr = np.asarray(im2, dtype=np.float32).copy()  # HWC, float32 in [0,255]
@@ -107,6 +131,15 @@ def embed_images(
     Returns an array of shape (len(imgs), 512). For images that failed to load,
     a zero vector is returned at that index to preserve alignment with labels.
     """
+    try:
+        import numpy as np
+    except ModuleNotFoundError as e:
+        raise ImportError("NumPy is required for embed_images()") from e
+    try:
+        import torch
+    except ModuleNotFoundError as e:
+        raise ImportError("torch is required for embed_images()") from e
+
     dev = get_device(device)
     model = _get_embed_model(dev)
 

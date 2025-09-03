@@ -15,10 +15,6 @@ from __future__ import annotations
 
 from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 
-import cv2
-import numpy as np
-from PIL import Image
-import torch
 
 from facefind.embedding_utils import get_device
 
@@ -29,12 +25,29 @@ from facefind.embedding_utils import get_device
 
 def variance_of_laplacian(img: np.ndarray) -> float:
     """Return the variance of the Laplacian -- a fast sharpness metric."""
+    try:
+        import cv2
+    except ModuleNotFoundError as e:
+        raise ImportError(
+            "variance_of_laplacian requires 'cv2'. Install opencv-python."
+        ) from e
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     return float(cv2.Laplacian(gray, cv2.CV_64F).var())
 
 
 def exposure_metrics(img: np.ndarray) -> Dict[str, float]:
     """Compute simple under/over exposure fractions from a grayscale histogram."""
+    try:
+        import cv2
+    except ModuleNotFoundError as e:
+        raise ImportError(
+            "exposure_metrics requires 'cv2'. Install opencv-python."
+        ) from e
+    try:
+        import numpy as np
+    except ModuleNotFoundError as e:
+        raise ImportError("exposure_metrics requires 'numpy'.") from e
+
     gray = cv2.cvtColor(img, cv2.COLOR_RGB2GRAY)
     hist = cv2.calcHist([gray], [0], None, [256], [0, 256]).ravel()
     total = hist.sum() or 1.0
@@ -46,6 +59,10 @@ def exposure_metrics(img: np.ndarray) -> Dict[str, float]:
 
 def face_region_sharpness(img: np.ndarray, device: Optional[str] = None) -> List[float]:
     """Compute sharpness for each detected face region using MTCNN."""
+    try:
+        from PIL import Image
+    except ModuleNotFoundError as e:
+        raise ImportError("face_region_sharpness requires Pillow") from e
     from facenet_pytorch import MTCNN  # lazy import
 
     dev = get_device(device)
@@ -73,6 +90,10 @@ def face_is_usable(img: np.ndarray, device: Optional[str] = None, *, min_sharpne
 
 def generate_caption(image: Image.Image, device: Optional[str] = None) -> str:
     """Generate a plain-English caption using BLIP."""
+    try:
+        import torch
+    except ModuleNotFoundError as e:
+        raise ImportError("generate_caption requires torch") from e
     from transformers import BlipForConditionalGeneration, BlipProcessor  # lazy
 
     dev = get_device(device)
@@ -93,6 +114,14 @@ def zero_shot_tags(
     top_k: int = 5,
 ) -> List[Tuple[str, float]]:
     """Return top-k labels using CLIP zero-shot classification."""
+    try:
+        import torch
+    except ModuleNotFoundError as e:
+        raise ImportError("zero_shot_tags requires torch") from e
+    try:
+        import numpy as np
+    except ModuleNotFoundError as e:
+        raise ImportError("zero_shot_tags requires numpy") from e
     from transformers import CLIPModel, CLIPProcessor  # lazy
 
     dev = get_device(device)
@@ -149,6 +178,14 @@ def ocr_text(img: np.ndarray, device: Optional[str] = None) -> List[str]:
 
 def clip_embeddings(images: Sequence[Image.Image], device: Optional[str] = None) -> np.ndarray:
     """Return L2-normalized CLIP embeddings for a list of PIL images."""
+    try:
+        import numpy as np
+    except ModuleNotFoundError as e:
+        raise ImportError("clip_embeddings requires numpy") from e
+    try:
+        import torch
+    except ModuleNotFoundError as e:
+        raise ImportError("clip_embeddings requires torch") from e
     from transformers import CLIPModel, CLIPProcessor  # lazy
 
     dev = get_device(device)
@@ -165,6 +202,10 @@ def clip_embeddings(images: Sequence[Image.Image], device: Optional[str] = None)
 
 def build_faiss_index(embeddings: np.ndarray):
     """Build a FAISS index (inner product) for similarity search."""
+    try:
+        import numpy as np
+    except ModuleNotFoundError as e:
+        raise ImportError("build_faiss_index requires numpy") from e
     import faiss  # lazy
 
     d = embeddings.shape[1]

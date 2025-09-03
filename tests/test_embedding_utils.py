@@ -1,5 +1,6 @@
-import sys
 from types import SimpleNamespace
+import sys
+from PIL import Image
 
 # Stub heavy dependencies before importing embedding_utils
 sys.modules["torch"] = SimpleNamespace(
@@ -8,25 +9,26 @@ sys.modules["torch"] = SimpleNamespace(
 )
 sys.modules["facenet_pytorch"] = SimpleNamespace(InceptionResnetV1=object)
 
-from PIL import Image
-
 import facefind.embedding_utils as embedding_utils
 
 
 def test_get_device_prefers_cuda(monkeypatch):
-    monkeypatch.setattr(embedding_utils.torch.cuda, "is_available", lambda: True)
+    torch_stub = sys.modules["torch"]
+    monkeypatch.setattr(torch_stub.cuda, "is_available", lambda: True)
     assert embedding_utils.get_device() == "cuda"
 
 
 def test_get_device_prefers_mps(monkeypatch):
-    monkeypatch.setattr(embedding_utils.torch.cuda, "is_available", lambda: False)
-    monkeypatch.setattr(embedding_utils.torch.backends.mps, "is_available", lambda: True)
+    torch_stub = sys.modules["torch"]
+    monkeypatch.setattr(torch_stub.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(torch_stub.backends.mps, "is_available", lambda: True)
     assert embedding_utils.get_device() == "mps"
 
 
 def test_get_device_default_cpu(monkeypatch):
-    monkeypatch.setattr(embedding_utils.torch.cuda, "is_available", lambda: False)
-    monkeypatch.setattr(embedding_utils.torch.backends.mps, "is_available", lambda: False)
+    torch_stub = sys.modules["torch"]
+    monkeypatch.setattr(torch_stub.cuda, "is_available", lambda: False)
+    monkeypatch.setattr(torch_stub.backends.mps, "is_available", lambda: False)
     assert embedding_utils.get_device() == "cpu"
 
 

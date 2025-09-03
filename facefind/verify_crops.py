@@ -51,9 +51,11 @@ def main() -> None:
         default=0.05,
         help="Max fraction of under/over-exposed pixels",
     )
+    parser.add_argument("--log-level", default="INFO", help="Logging level (e.g., DEBUG, INFO)")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO)
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    logging.basicConfig(level=level, force=True)
     prof = get_profile(args.strictness)
 
     device = get_device(args.device)

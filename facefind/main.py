@@ -149,7 +149,15 @@ def main() -> None:
         default=100,
         help="Print a progress line every N media files (default: 100)",
     )
+    parser.add_argument(
+        "--log-level",
+        default="INFO",
+        help="Logging level (e.g., DEBUG, INFO)",
+    )
     args = parser.parse_args()
+
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    logging.basicConfig(level=level, force=True)
 
     prof = get_profile(args.strictness)
 
@@ -255,5 +263,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
     main()

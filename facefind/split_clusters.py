@@ -45,9 +45,11 @@ def main() -> None:
     ap.add_argument("out_dir", help="Destination directory for per-label folders")
     ap.add_argument("--copy", action="store_true", help="Copy files instead of hard-linking")
     ap.add_argument("--rel-root", default=None, help="Optional root to resolve relative CSV paths")
+    ap.add_argument("--log-level", default="INFO", help="Logging level (e.g., DEBUG, INFO)")
     args = ap.parse_args()
 
-    logging.basicConfig(level=logging.INFO)
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    logging.basicConfig(level=level, force=True)
     csv_path = Path(args.csv_path).expanduser().resolve()
     out_dir = Path(args.out_dir).expanduser().resolve()
     ensure_dir(out_dir)

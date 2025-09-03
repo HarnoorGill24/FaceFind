@@ -47,9 +47,11 @@ def main():
     parser.add_argument("--models", default="models", help="Models directory (default: models)")
     parser.add_argument("--predictions", default=None, help="Path to predictions CSV (optional)")
     parser.add_argument("--save-json", default=None, help="Where to save the JSON report (default: outputs/report.json)")
+    parser.add_argument("--log-level", default="INFO", help="Logging level (e.g., DEBUG, INFO)")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO)
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    logging.basicConfig(level=level, force=True)
     outputs = Path(args.outputs).expanduser().resolve()
     models = Path(args.models).expanduser().resolve()
     preds_csv = Path(args.predictions).expanduser().resolve() if args.predictions else (outputs / "predictions.csv")

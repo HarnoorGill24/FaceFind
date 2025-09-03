@@ -82,9 +82,11 @@ def main():
     ap.add_argument("--review-threshold", type=float, default=0.50, help="Confidence >= this and < accept-threshold goes to REVIEW (default: 0.50)")
     ap.add_argument("--copy", action="store_true", help="Copy files instead of creating hard links")
     ap.add_argument("--rel-root", default=None, help="Resolve relative CSV paths against this root (optional)")
+    ap.add_argument("--log-level", default="INFO", help="Logging level (e.g., DEBUG, INFO)")
     args = ap.parse_args()
 
-    logging.basicConfig(level=logging.INFO)
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    logging.basicConfig(level=level, force=True)
     csv_path = Path(args.csv_path).expanduser().resolve()
     out_root = Path(args.out_dir).expanduser().resolve()
     accept_root = out_root / "accept"

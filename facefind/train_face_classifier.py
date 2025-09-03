@@ -73,9 +73,11 @@ def main():
     parser.add_argument("--out", default="models", help="Output directory (default: models)")
     parser.add_argument("--strictness", default="strict", choices=["strict", "normal", "loose"], help="Profile from config.py (controls embedding batch size)")
     parser.add_argument("--device", default=None, help="torch device: cuda, mps, or cpu (auto if unset)")
+    parser.add_argument("--log-level", default="INFO", help="Logging level (e.g., DEBUG, INFO)")
     args = parser.parse_args()
 
-    logging.basicConfig(level=logging.INFO)
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    logging.basicConfig(level=level, force=True)
     prof = get_profile(args.strictness)
     device = get_device(args.device)
     logger.info("Using device: %s | embed_batch=%s", device, prof.embed_batch)

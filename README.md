@@ -22,6 +22,8 @@ pip install -e .
 
 ### 2) Run the full loop
 
+All CLI commands accept `--log-level` (e.g., `--log-level DEBUG`) to control verbosity. The default is `INFO`.
+
 **Scan (images + videos):**
 ```bash
 facefind-detect \

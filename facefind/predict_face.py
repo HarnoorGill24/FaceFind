@@ -66,7 +66,11 @@ def main() -> None:
         choices=["strict", "normal", "loose"],
         help="(unused here; kept for CLI consistency with other tools)",
     )
+    ap.add_argument("--log-level", default="INFO", help="Logging level (e.g., DEBUG, INFO)")
     args = ap.parse_args()
+
+    level = getattr(logging, args.log_level.upper(), logging.INFO)
+    logging.basicConfig(level=level, force=True)
 
     img_root = Path(args.images).expanduser().resolve()
     model_dir = Path(args.model_dir).expanduser().resolve()
@@ -139,5 +143,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    logging.basicConfig(level=logging.INFO)
     main()

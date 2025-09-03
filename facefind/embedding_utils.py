@@ -7,6 +7,7 @@ Used by: main.py, train_face_classifier.py, predict_face.py
 from __future__ import annotations
 
 import functools
+import logging
 import os
 from pathlib import Path
 from typing import Iterable, Iterator, List, Optional, Sequence, TypeVar
@@ -67,7 +68,8 @@ def load_images(paths: Sequence[Path]) -> List[Optional[Image.Image]]:
         try:
             with Image.open(p) as im:
                 out.append(im.convert("RGB"))
-        except Exception:
+        except Exception as exc:
+            logging.warning("Failed to load image %s: %s", p, exc)
             out.append(None)
     return out
 

@@ -1,7 +1,11 @@
 from PIL import Image
 import numpy as np
 
-from quality import variance_of_laplacian, check_exposure
+import pytest
+
+cv2 = pytest.importorskip("cv2")
+
+from facefind.quality import variance_of_laplacian, check_exposure
 
 def test_variance_of_laplacian_sharp_vs_blur():
     sharp = np.zeros((100, 100), dtype=np.uint8)

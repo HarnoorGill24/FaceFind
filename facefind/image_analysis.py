@@ -20,7 +20,7 @@ import numpy as np
 from PIL import Image
 import torch
 
-from embedding_utils import get_device
+from facefind.embedding_utils import get_device
 
 
 # ---------------------------------------------------------------------------

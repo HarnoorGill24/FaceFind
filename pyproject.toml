@@ -1,3 +1,20 @@
+[build-system]
+requires = ["setuptools"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "facefind"
+version = "0.1.0"
+
+[project.scripts]
+facefind-detect = "facefind.main:main"
+facefind-verify = "facefind.verify_crops:main"
+facefind-split = "facefind.split_clusters:main"
+facefind-train = "facefind.train_face_classifier:main"
+facefind-predict = "facefind.predict_face:main"
+facefind-apply = "facefind.apply_predictions:main"
+facefind-report = "facefind.report:main"
+
 [tool.black]
 line-length = 160
 target-version = ["py311"]
@@ -11,7 +28,7 @@ select = ["E", "F", "I"]  # E: pycodestyle, F: pyflakes, I: import sorting (isor
 ignore = ["E203"]         # black-compatible
 
 [tool.ruff.lint.per-file-ignores]
-"gui/main_window.py" = ["E701", "E702"]
+"facefind/gui/main_window.py" = ["E701", "E702"]
 "tests/*.py" = ["E402"]
 
 [tool.pytest.ini_options]

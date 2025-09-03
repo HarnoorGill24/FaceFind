@@ -11,43 +11,22 @@ The CSV is written with a commented schema line and canonical headers:
 """
 from __future__ import annotations
 
-# ruff: noqa: E402  # allow sys.path guard before some imports
-# --- robust import guard so we can import local packages even if CWD is elsewhere
-import sys
-from pathlib import Path
-
-_THIS = Path(__file__).resolve()
-ROOT = _THIS.parent  # repo root if this file lives at root
-for extra in (ROOT, ROOT.parent):  # also try parent-of-root (just in case)
-    s = str(extra)
-    if s and s not in sys.path:
-        sys.path.insert(0, s)
-# -------------------------------------------------------------------------------
-
 import argparse
 import csv
 import json
 import math
 import logging
+from pathlib import Path
 from typing import List, Optional
 
 import joblib
 import numpy as np
 from PIL import Image
 
-from embedding_utils import embed_images, get_device, load_images
+from facefind.embedding_utils import embed_images, get_device, load_images
+from facefind.io_schema import PREDICTIONS_SCHEMA, SCHEMA_MAGIC
 
 logger = logging.getLogger(__name__)
-
-# Prefer the shared schema; fall back to built-ins if package not available
-try:
-    from facefind.io_schema import PREDICTIONS_SCHEMA, SCHEMA_MAGIC
-except Exception:  # ModuleNotFoundError or anything else
-    logger.warning(
-        "'facefind.io_schema' not found; using built-in schema. Create facefind/io_schema.py to share schema across tools."
-    )
-    PREDICTIONS_SCHEMA = ("path", "label", "prob")
-    SCHEMA_MAGIC = "# FaceFindPredictions,v1"
 
 
 IMAGE_EXTS = {".jpg", ".jpeg", ".png", ".bmp", ".tif", ".tiff", ".webp"}

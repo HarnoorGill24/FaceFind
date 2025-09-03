@@ -3,8 +3,8 @@ from pathlib import Path
 
 import pytest
 
-import main
-from config import get_profile
+import facefind.main as main
+from facefind.config import get_profile
 
 
 def test_is_image_and_is_video_case_insensitive(tmp_path):

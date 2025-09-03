@@ -17,13 +17,14 @@ source .venv/bin/activate
 # .venv\Scripts\activate
 
 pip install -r requirements.txt
+pip install -e .
 ```
 
 ### 2) Run the full loop
 
 **Scan (images + videos):**
 ```bash
-python main.py \
+facefind-detect \
   --input /PATH/TO/MEDIA \
   --output ./outputs \
   --video-step 5 \
@@ -32,7 +33,7 @@ python main.py \
 
 **Verify crops (reject low-quality / non-faces):**
 ```bash
-python verify_crops.py \
+facefind-verify \
   outputs/crops \
   --reject-dir outputs/rejects \
   --strictness strict
@@ -40,7 +41,7 @@ python verify_crops.py \
 
 **Split a clustering/prediction CSV into per-label folders (optional):**
 ```bash
-python split_clusters.py \
+facefind-split \
   outputs/clusters.csv \
   outputs/people_by_cluster \
   --copy
@@ -48,14 +49,14 @@ python split_clusters.py \
 
 **Train a classifier on labeled folders:**
 ```bash
-python train_face_classifier.py \
+facefind-train \
   --data outputs/people_by_cluster \
   --out models
 ```
 
 **Predict on new crops / folders:**
 ```bash
-python predict_face.py \
+facefind-predict \
   outputs/crops \
   --model-dir models \
   --out outputs/predictions.csv
@@ -63,7 +64,7 @@ python predict_face.py \
 
 **Apply predictions to accept/review folders (optional):**
 ```bash
-python apply_predictions.py \
+facefind-apply \
   --in outputs/predictions.csv \
   --people-dir outputs/people \
   --out-dir outputs/sorted
@@ -71,7 +72,7 @@ python apply_predictions.py \
 
 ---
 
-## Strictness Profiles (centralized in `config.py`)
+## Strictness Profiles (centralized in `facefind/config.py`)
 
 Use a single flag everywhere: `--strictness {strict,normal,loose}`.
 
@@ -106,8 +107,7 @@ pytest
 ```
 
 ### Repo Layout
-- `*.py` scripts: CLI entry points for each step.
-- `config.py`: strictness profiles (single source of truth).
+- `facefind/`: package with CLI entry points and shared modules.
 - `models/`: trained classifier artifacts.
 - `outputs/`: crops, manifests, clusters, predictions, etc.
 - `tests/`: small `pytest` suite.

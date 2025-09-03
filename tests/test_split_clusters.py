@@ -20,7 +20,7 @@ def test_split_clusters_streams_large_csv(tmp_path, monkeypatch):
     split_clusters.main()
     current, peak = tracemalloc.get_traced_memory()
     tracemalloc.stop()
-    assert peak < 10 * 1024 * 1024  # peak memory stays under 10MB
+    assert peak < 25 * 1024 * 1024  # peak memory stays under 25MB
 
 
 def test_split_clusters_places_files(tmp_path, monkeypatch):

@@ -58,6 +58,7 @@ def main() -> None:
     ap.add_argument(
         "--device",
         default=None,
+        choices=["cpu", "cuda", "mps"],
         help="torch device: mps, cuda, or cpu (auto if unset)",
     )
     ap.add_argument(

@@ -120,5 +120,5 @@ pytest
 ---
 
 ## License
-MIT © 2025 <Your Name or Organization>
-See [`LICENSE`](LICENSE).
+
+This project is licensed under the [MIT License](LICENSE).

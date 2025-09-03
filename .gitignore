@@ -50,3 +50,12 @@ dist/
 
 # local data
 data/
+# Project artifacts
+outputs/
+models/
+.DS_Store
+
+# Tools & caches
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/

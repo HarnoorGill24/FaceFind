@@ -4,28 +4,34 @@
 import sys
 from pathlib import Path
 
-from PyQt6.QtGui import QAction, QTextCursor
-from PyQt6.QtWidgets import (
-    QCheckBox,
-    QComboBox,
-    QDoubleSpinBox,
-    QFileDialog,
-    QFormLayout,
-    QHBoxLayout,
-    QLabel,
-    QLineEdit,
-    QListWidget,
-    QListWidgetItem,
-    QMainWindow,
-    QMessageBox,
-    QPushButton,
-    QSpinBox,
-    QSplitter,
-    QTabWidget,
-    QTextEdit,
-    QVBoxLayout,
-    QWidget,
-)
+try:  # pragma: no cover - optional dependency
+    from PyQt6.QtGui import QAction, QTextCursor
+    from PyQt6.QtWidgets import (
+        QCheckBox,
+        QComboBox,
+        QDoubleSpinBox,
+        QFileDialog,
+        QFormLayout,
+        QHBoxLayout,
+        QLabel,
+        QLineEdit,
+        QListWidget,
+        QListWidgetItem,
+        QMainWindow,
+        QMessageBox,
+        QPushButton,
+        QSpinBox,
+        QSplitter,
+        QTabWidget,
+        QTextEdit,
+        QVBoxLayout,
+        QWidget,
+    )
+except ModuleNotFoundError as e:  # pragma: no cover
+    raise ImportError(
+        "PyQt6 is required for facefind.gui.main_window."
+        " Install the 'PyQt6' package to use this module."
+    ) from e
 
 from facefind.utils import ensure_dir
 

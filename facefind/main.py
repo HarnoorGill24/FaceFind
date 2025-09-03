@@ -114,7 +114,13 @@ def create_mtcnn(profile, device: str):
         logger.info("Detectors on MPS can fail due to adaptive pooling. Using CPU for MTCNN.")
         mtcnn_device = "cpu"
 
-    from facenet_pytorch import MTCNN
+    try:  # pragma: no cover - import for optional dependency
+        from facenet_pytorch import MTCNN
+    except ModuleNotFoundError as e:  # pragma: no cover - optional dependency
+        raise ImportError(
+            "facenet_pytorch is required for MTCNN detection. "
+            "Install with `pip install -r requirements.txt`."
+        ) from e
 
     return MTCNN(
         keep_all=True,

@@ -3,12 +3,16 @@
 from __future__ import annotations
 
 import importlib
+from typing import TYPE_CHECKING
 
-import numpy as np
-from PIL import Image
+if TYPE_CHECKING:  # pragma: no cover - imports for type hints only
+    import numpy as np
+    from PIL import Image
 
 _CV2_SENTINEL = object()
+_NP_SENTINEL = object()
 cv2 = _CV2_SENTINEL  # type: ignore[assignment]
+np = _NP_SENTINEL  # type: ignore[assignment]
 
 
 def _require_cv2():
@@ -31,9 +35,32 @@ def _require_cv2():
     return cv2
 
 
-def variance_of_laplacian(pil: Image.Image, box: tuple[int, int, int, int] | None = None) -> float:
+def _require_numpy():
+    """Return the imported ``numpy`` module or raise a helpful error."""
+    global np
+    if np is _NP_SENTINEL:
+        try:  # pragma: no cover - exercised in tests
+            np = importlib.import_module("numpy")
+        except ModuleNotFoundError as e:  # pragma: no cover - optional dependency
+            np = None
+            raise ImportError(
+                "NumPy is required for image quality assessment. "
+                "Install the 'numpy' package to enable this feature."
+            ) from e
+    if np is None:  # pragma: no cover - when patched to None in tests
+        raise ImportError(
+            "NumPy is required for image quality assessment. "
+            "Install the 'numpy' package to enable this feature."
+        )
+    return np
+
+
+def variance_of_laplacian(
+    pil: Image.Image, box: tuple[int, int, int, int] | None = None
+) -> float:
     """Return variance of Laplacian; crop to *box* if provided."""
     cv2 = _require_cv2()
+    np = _require_numpy()
     if box is not None:
         pil = pil.crop(box)
     arr = np.array(pil)
@@ -52,6 +79,7 @@ def check_exposure(
 ) -> str:
     """Classify exposure as 'under', 'over', or 'good'."""
     cv2 = _require_cv2()
+    np = _require_numpy()
     arr = np.array(pil)
     if arr.ndim == 2:
         gray = arr

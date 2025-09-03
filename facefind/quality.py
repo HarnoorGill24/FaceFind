@@ -1,11 +1,27 @@
 from __future__ import annotations
 
-import cv2
 import numpy as np
 from PIL import Image
 
-def variance_of_laplacian(pil: Image.Image, box: tuple[int, int, int, int] | None = None) -> float:
+try:  # pragma: no cover - exercised in tests
+    import cv2
+except ImportError:  # pragma: no cover - optional dependency
+    cv2 = None
+
+
+def _require_cv2() -> None:
+    """Raise an informative error if OpenCV is missing."""
+    if cv2 is None:
+        raise ImportError(
+            "OpenCV is required for image quality assessment. "
+            "Install the 'opencv-python' package to enable this feature."
+        )
+
+def variance_of_laplacian(
+    pil: Image.Image, box: tuple[int, int, int, int] | None = None
+) -> float:
     """Return variance of Laplacian; crop to *box* if provided."""
+    _require_cv2()
     if box is not None:
         pil = pil.crop(box)
     arr = np.array(pil)
@@ -22,6 +38,7 @@ def check_exposure(
     tol: float = 0.05,
 ) -> str:
     """Classify exposure as 'under', 'over', or 'good'."""
+    _require_cv2()
     arr = np.array(pil)
     if arr.ndim == 2:
         gray = arr
@@ -43,6 +60,7 @@ def passes_quality(
     exposure_tol: float = 0.05,
 ) -> tuple[bool, float, str]:
     """Return (passes, var, exposure) for convenience."""
+    _require_cv2()
     var = variance_of_laplacian(pil)
     exposure = check_exposure(pil, tol=exposure_tol)
     return var >= min_var and exposure == "good", var, exposure
